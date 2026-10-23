@@ -25,6 +25,13 @@ const PROVIDER_ALIASES: Record<string, string[]> = {
   plex: ['plex', 'plex free movies & tv'],
   tubi: ['tubi', 'tubi tv'],
   'pluto tv': ['pluto tv', 'pluto'],
+  'the roku channel': ['the roku channel', 'roku channel', 'roku'],
+  'roku channel': ['the roku channel', 'roku channel', 'roku'],
+  cineverse: ['cineverse', 'cineverse tv'],
+  'cineverse tv': ['cineverse', 'cineverse tv'],
+  youtube: ['youtube', 'youtube free', 'youtube movies'],
+  'google tv freeplay': ['google tv freeplay', 'google play', 'google tv', 'google'],
+  hoopla: ['hoopla'],
 };
 
 /**
