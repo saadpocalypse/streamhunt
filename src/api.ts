@@ -275,15 +275,14 @@ export class WatchmodeClient {
    * List all providers supported by Watchmode in a region
    */
   async getProviders(region: string = 'US'): Promise<Provider[]> {
+    if (this.mockMode) {
+      return MOCK_PROVIDERS;
+    }
+
     const cacheKey = `providers_${region.toUpperCase()}`;
     const cached = this.cache.get<Provider[]>(cacheKey);
     if (cached) {
       return cached;
-    }
-
-    if (this.mockMode) {
-      this.cache.set(cacheKey, MOCK_PROVIDERS);
-      return MOCK_PROVIDERS;
     }
 
     const raw = await this.request<any>('/sources/', {

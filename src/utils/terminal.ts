@@ -1,12 +1,26 @@
 /**
- * Creates an OSC 8 clickable terminal hyperlink with graceful fallback
+ * Normalizes and ensures a valid web URL with protocol
+ */
+export function normalizeUrl(url?: string | null): string | null {
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  if (!trimmed || trimmed.toLowerCase() === 'null') return null;
+  if (trimmed.startsWith('//')) return `https:${trimmed}`;
+  if (!/^https?:\/\//i.test(trimmed)) return `https://${trimmed}`;
+  return trimmed;
+}
+
+/**
+ * Creates a clickable terminal hyperlink that works in both OSC 8 terminals
+ * and standard terminals (like default macOS Terminal.app).
  */
 export function formatHyperlink(text: string, url?: string | null): string {
   if (!url) return text;
+  const cleanUrl = normalizeUrl(url);
+  if (!cleanUrl) return text;
 
   // OSC 8 hyperlink sequence: \u001b]8;;URL\u0007TEXT\u001b]8;;\u0007
-  const osc8 = `\u001B]8;;${url}\u0007${text}\u001B]8;;\u0007`;
-  return osc8;
+  return `\u001B]8;;${cleanUrl}\u0007${text}\u001B]8;;\u0007`;
 }
 
 /**

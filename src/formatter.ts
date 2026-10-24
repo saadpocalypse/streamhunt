@@ -7,7 +7,13 @@ import type {
   TitleDetails,
   StreamHuntConfig,
 } from './types.js';
-import { formatHyperlink, formatPrice, formatMediaType, truncate } from './utils/terminal.js';
+import {
+  formatHyperlink,
+  normalizeUrl,
+  formatPrice,
+  formatMediaType,
+  truncate,
+} from './utils/terminal.js';
 
 export interface RenderOptions {
   includeAll?: boolean;
@@ -117,9 +123,11 @@ export class Formatter {
     }
 
     if (source.webUrl) {
-      const linkText = chalk.cyan.underline('Open Link');
-      const clickable = formatHyperlink(linkText, source.webUrl);
-      line += `  -> ${clickable}`;
+      const cleanUrl = normalizeUrl(source.webUrl);
+      if (cleanUrl) {
+        const clickable = formatHyperlink(cleanUrl, cleanUrl);
+        line += `  -> ${chalk.cyan.underline(clickable)}`;
+      }
     }
 
     return line;
@@ -155,17 +163,14 @@ export class Formatter {
       lines.push('');
     } else {
       lines.push(
-        boxen(
-          `${chalk.yellow.bold('[Notice] Not currently streaming on your active subscriptions or free tiers.')}\n\n` +
-            `${chalk.dim('Tip: Use ')}${chalk.cyan('streamhunt "<title>" --all')}${chalk.dim(
-              ' to view digital purchase/rental options and other streaming providers.'
-            )}`,
-          {
-            padding: 1,
-            borderStyle: 'round',
-            borderColor: 'yellow',
-          }
-        )
+        `  ${chalk.yellow.bold('[Notice]')} ${chalk.white(
+          'Not currently streaming on your active subscriptions or free tiers.'
+        )}`
+      );
+      lines.push(
+        `  ${chalk.dim('Tip: Use')} ${chalk.cyan('streamhunt "<title>" --all')} ${chalk.dim(
+          'to view digital purchase/rental options and other streaming providers.'
+        )}`
       );
       lines.push('');
     }
