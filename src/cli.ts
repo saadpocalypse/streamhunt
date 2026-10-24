@@ -14,7 +14,6 @@ import {
 } from './config.js';
 import { matchSources } from './matcher.js';
 import { Formatter } from './formatter.js';
-import { StreamHuntTui } from './tui.js';
 import { defaultCache } from './cache.js';
 import { runConfigWizard } from './wizard.js';
 import { formatMediaType } from './utils/terminal.js';
@@ -35,7 +34,6 @@ program
   .option('-a, --all', 'Display all platforms including rent, buy, and non-subscribed SVODs', false)
   .option('-r, --region <region>', 'Override target region code (e.g. US, GB, CA)')
   .option('--json', 'Output raw JSON result to stdout for scripting', false)
-  .option('--no-interactive', 'Print static Textual layout without interactive keyboard navigation')
   .option('--mock', 'Force offline mock mode for testing without using API quota', false)
   .action(async (titleParts: string[], options) => {
     let query = titleParts.join(' ').trim();
@@ -174,23 +172,16 @@ program
         includeAll: options.all,
       });
 
-      // Step 4: Render
+      // Step 4: Render cleanly and exit
       if (options.json) {
         console.log(JSON.stringify(matched, null, 2));
-      } else if (!process.stdin.isTTY || options.interactive === false) {
+      } else {
         console.log(
           Formatter.renderAvailability(matched, {
             includeAll: options.all,
             region,
-            interactive: false,
           })
         );
-      } else {
-        const tui = new StreamHuntTui(matched, {
-          includeAll: options.all,
-          region,
-        });
-        await tui.start();
       }
     } catch (err: any) {
       if (spinner.isSpinning) {

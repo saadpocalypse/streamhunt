@@ -1,6 +1,5 @@
 import chalk from 'chalk';
 import boxen from 'boxen';
-import Table from 'cli-table3';
 import type {
   MatchedAvailability,
   CategorizedSource,
@@ -12,15 +11,13 @@ import { formatHyperlink, formatPrice, formatMediaType, truncate } from './utils
 export interface RenderOptions {
   includeAll?: boolean;
   region?: string;
-  selectedIndex?: number;
-  interactive?: boolean;
 }
 
 export class Formatter {
   /**
-   * Renders a clean Textual-style header panel for the movie or TV show
+   * Renders a clean title card for the movie or TV show
    */
-  static renderTitleCard(matched: MatchedAvailability, region: string = 'US'): string {
+  static renderTitleCard(matched: MatchedAvailability): string {
     const { title, details } = matched;
     const media = formatMediaType(title.type || details?.type);
     const yearStr = title.year ? ` (${title.year})` : '';
@@ -55,18 +52,16 @@ export class Formatter {
       plotLine = chalk.dim.italic(truncatedPlot);
     }
 
-    let body = `  ${titleLine}\n`;
+    let body = `${titleLine}\n`;
     if (metaLine) {
-      body += `  ${metaLine}\n`;
+      body += `${metaLine}\n`;
     }
     if (plotLine) {
-      body += `\n  ${plotLine}\n`;
+      body += `\n${plotLine}\n`;
     }
 
     return boxen(body.trimEnd(), {
-      title: chalk.bold.cyan(' STREAMHUNT ') + chalk.dim(`[Region: ${region.toUpperCase()}]`),
-      titleAlignment: 'left',
-      padding: { top: 0, bottom: 0, left: 0, right: 1 },
+      padding: { top: 0, bottom: 0, left: 1, right: 1 },
       margin: { top: 0, bottom: 0 },
       borderStyle: 'round',
       borderColor: 'cyan',
@@ -74,142 +69,74 @@ export class Formatter {
   }
 
   /**
-   * Creates a stylized cli-table3 table formatted like a Textual panel
+   * Formats a single stream item as a clean, easily scannable bullet point
    */
-  private static createSectionTable(
-    headers: string[] = ['STATUS', 'PROVIDER', 'DETAILS', 'QUALITY', 'PRICE', 'ACTION']
-  ): Table.Table {
-    return new Table({
-      head: headers.map((h) => chalk.cyan.bold(h)),
-      chars: {
-        top: '─',
-        'top-mid': '┬',
-        'top-left': '┌',
-        'top-right': '┐',
-        bottom: '─',
-        'bottom-mid': '┴',
-        'bottom-left': '└',
-        'bottom-right': '┘',
-        left: '│',
-        'left-mid': '├',
-        mid: '─',
-        'mid-mid': '┼',
-        right: '│',
-        'right-mid': '┤',
-        middle: '│',
-      },
-      style: {
-        'padding-left': 1,
-        'padding-right': 1,
-        head: [],
-        border: ['dim'],
-      },
-    });
-  }
-
-  /**
-   * Formats a row in the table, with optional interactive highlight
-   */
-  private static formatTableRow(
-    source: CategorizedSource,
-    isHighlighted: boolean = false
-  ): string[] {
-    let statusBadge: string;
-    let priceText: string;
-    let detailsText: string = source.subDescription || '-';
+  static formatSourceBullet(source: CategorizedSource): string {
+    let badge: string;
 
     switch (source.category) {
       case 'paid_sub':
-        statusBadge = chalk.green.bold('[Paid Sub]');
-        priceText = chalk.green('Included');
-        if (!source.subDescription) detailsText = 'Subscription included';
+        badge = chalk.green.bold('[Paid Sub]');
         break;
       case 'free_tier':
-        statusBadge = chalk.yellow.bold('[Free Tier]');
-        priceText = chalk.yellow('Free');
-        if (!source.subDescription) detailsText = 'Freestream / Free channels';
+        badge = chalk.yellow.bold('[Free Tier]');
         break;
       case 'included_free':
-        statusBadge = chalk.green.bold('[Included Free]');
-        priceText = chalk.green('Free');
-        if (!source.subDescription) detailsText = 'Free on paid service';
+        badge = chalk.green.bold('[Included Free]');
         break;
       case 'public_free':
-        statusBadge = chalk.blue.bold('[Public Free]');
-        priceText = chalk.blue('Free');
-        if (!source.subDescription) detailsText = 'Ad-supported';
+        badge = chalk.blue.bold('[Public Free]');
         break;
       case 'rent':
-        statusBadge = chalk.magenta.bold('[Rent]');
-        priceText = chalk.yellow(formatPrice(source.price));
-        detailsText = 'Digital rental';
+        badge = chalk.magenta.bold('[Rent]');
         break;
       case 'buy':
-        statusBadge = chalk.cyan.bold('[Buy]');
-        priceText = chalk.yellow(formatPrice(source.price));
-        detailsText = 'Digital purchase';
+        badge = chalk.cyan.bold('[Buy]');
         break;
       case 'other_sub':
       default:
-        statusBadge = chalk.gray.bold('[Other Sub]');
-        priceText = chalk.dim('Sub Req');
-        detailsText = 'Separate subscription';
+        badge = chalk.gray.bold('[Other Sub]');
         break;
     }
 
-    let providerText = source.providerName;
-    if (isHighlighted) {
-      providerText = chalk.bold.underline(providerText);
-    } else {
-      providerText = chalk.bold.white(providerText);
+    let line = `  - ${badge} ${chalk.bold.white(source.providerName)}`;
+
+    if (source.subDescription) {
+      line += ` ${chalk.dim(source.subDescription)}`;
     }
 
-    let qualityText = chalk.dim('SD');
+    if (source.price !== null && source.price !== undefined) {
+      line += ` ${chalk.yellow(formatPrice(source.price))}`;
+    }
+
     if (source.format) {
       const fmt = source.format.toUpperCase();
-      if (fmt.includes('4K') || fmt.includes('UHD')) {
-        qualityText = chalk.hex('#FF9900').bold('4K');
-      } else if (fmt.includes('HD') || fmt.includes('1080') || fmt.includes('720')) {
-        qualityText = chalk.cyan('HD');
-      } else {
-        qualityText = chalk.dim(fmt);
-      }
+      const fmtColor = fmt.includes('4K') ? chalk.hex('#FF9900').bold : chalk.dim;
+      line += ` ${fmtColor(`(${fmt})`)}`;
     }
 
-    let actionText = chalk.dim('-');
     if (source.webUrl) {
-      const linkLabel = isHighlighted ? '-> [Open Stream]' : '-> Open Stream';
-      actionText = formatHyperlink(chalk.dim.underline(linkLabel), source.webUrl);
+      const linkText = chalk.cyan.underline('Open Link');
+      const clickable = formatHyperlink(linkText, source.webUrl);
+      line += `  -> ${clickable}`;
     }
 
-    const pointer = isHighlighted ? chalk.cyan.bold('>') : ' ';
-    const formattedStatus = `${pointer} ${statusBadge}`;
-
-    return [
-      formattedStatus,
-      providerText,
-      chalk.dim(detailsText),
-      qualityText,
-      priceText,
-      actionText,
-    ];
+    return line;
   }
 
   /**
-   * Renders the complete Textual-inspired availability interface
+   * Renders streaming availability as an easily scannable bullet-point list
    */
   static renderAvailability(
     matched: MatchedAvailability,
     options: RenderOptions = {}
   ): string {
     const lines: string[] = [];
-    const region = options.region || 'US';
 
-    // 1. Header Card
-    lines.push(this.renderTitleCard(matched, region));
+    // 1. Title Card
+    lines.push(this.renderTitleCard(matched));
     lines.push('');
 
-    // Combine user available streams
     const userStreams = [
       ...matched.paidSubscriptions,
       ...matched.includedFree,
@@ -217,22 +144,13 @@ export class Formatter {
       ...matched.publicFree,
     ];
 
-    let currentIndex = 0;
-    const selectedIdx = options.selectedIndex ?? -1;
-
-    // 2. Included Streams Section
+    // 2. Included in Your Services & Free Platforms
     if (userStreams.length > 0) {
-      lines.push(
-        chalk.bold.green('  INCLUDED IN YOUR SERVICES & FREE PLATFORMS')
-      );
-
-      const table = this.createSectionTable();
+      lines.push(chalk.bold.underline('Included in Your Services & Free Platforms:'));
+      lines.push('');
       for (const src of userStreams) {
-        const isHighlighted = options.interactive && currentIndex === selectedIdx;
-        table.push(this.formatTableRow(src, isHighlighted));
-        currentIndex++;
+        lines.push(this.formatSourceBullet(src));
       }
-      lines.push(table.toString());
       lines.push('');
     } else {
       lines.push(
@@ -251,55 +169,45 @@ export class Formatter {
       lines.push('');
     }
 
-    // 3. Other Subscription Platforms (when --all is enabled)
+    // 3. Other Subscription Platforms (when --all is passed)
     if (options.includeAll && matched.otherSubscriptions.length > 0) {
-      lines.push(
-        chalk.bold.gray('  OTHER SUBSCRIPTION PLATFORMS (Requires separate signup)')
-      );
-
-      const table = this.createSectionTable();
+      lines.push(chalk.bold.underline('Other Subscription Platforms:'));
+      lines.push('');
       for (const src of matched.otherSubscriptions) {
-        const isHighlighted = options.interactive && currentIndex === selectedIdx;
-        table.push(this.formatTableRow(src, isHighlighted));
-        currentIndex++;
+        lines.push(this.formatSourceBullet(src));
       }
-      lines.push(table.toString());
       lines.push('');
     }
 
     // 4. Digital Purchase & Rental (VOD)
     const showVod = options.includeAll || matched.rent.length > 0 || matched.buy.length > 0;
-    const vodSources = [...matched.rent, ...matched.buy];
-
-    if (showVod && vodSources.length > 0) {
-      lines.push(
-        chalk.bold.magenta('  DIGITAL PURCHASE & RENTAL (VOD)')
-      );
-
-      const table = this.createSectionTable();
-      for (const src of vodSources.slice(0, 8)) {
-        const isHighlighted = options.interactive && currentIndex === selectedIdx;
-        table.push(this.formatTableRow(src, isHighlighted));
-        currentIndex++;
-      }
-      lines.push(table.toString());
+    if (showVod && (matched.rent.length > 0 || matched.buy.length > 0)) {
+      lines.push(chalk.bold.underline('Digital Purchase & Rental (VOD):'));
       lines.push('');
-    }
 
-    // 5. Interactive Footer Bar
-    if (options.interactive) {
-      lines.push(
-        chalk.dim(
-          '  [Up/Down] Navigate  [Enter] Open Stream  [a] Toggle All/Rent  [/] New Search  [q] Quit'
-        )
-      );
+      if (matched.rent.length > 0) {
+        lines.push(`  ${chalk.dim('Available for Rent:')}`);
+        for (const src of matched.rent.slice(0, 5)) {
+          lines.push(this.formatSourceBullet(src));
+        }
+      }
+
+      if (matched.buy.length > 0) {
+        if (matched.rent.length > 0) lines.push('');
+        lines.push(`  ${chalk.dim('Available to Buy:')}`);
+        for (const src of matched.buy.slice(0, 5)) {
+          lines.push(this.formatSourceBullet(src));
+        }
+      }
+
+      lines.push('');
     }
 
     return lines.join('\n');
   }
 
   /**
-   * Renders the list of supported providers in the region with fixed-width tabular formatting
+   * Renders the list of supported providers as clean bullet points
    */
   static renderProvidersList(providers: Provider[], region: string): string {
     const lines: string[] = [];
@@ -320,42 +228,11 @@ export class Formatter {
     );
     lines.push('');
 
-    const table = new Table({
-      head: ['PROVIDER NAME', 'DEFAULT TYPE', 'SUPPORTED REGIONS'].map((h) =>
-        chalk.cyan.bold(h)
-      ),
-      chars: {
-        top: '─',
-        'top-mid': '┬',
-        'top-left': '┌',
-        'top-right': '┐',
-        bottom: '─',
-        'bottom-mid': '┴',
-        'bottom-left': '└',
-        'bottom-right': '┘',
-        left: '│',
-        'left-mid': '├',
-        mid: '─',
-        'mid-mid': '┼',
-        right: '│',
-        'right-mid': '┤',
-        middle: '│',
-      },
-      style: {
-        'padding-left': 1,
-        'padding-right': 1,
-        head: [],
-        border: ['dim'],
-      },
-    });
-
     for (const p of providers) {
-      const typeLabel = p.type ? chalk.bold(p.type.toUpperCase()) : chalk.dim('-');
-      const regionsList = p.regions ? p.regions.slice(0, 5).join(', ') : region;
-      table.push([chalk.white.bold(p.name), typeLabel, chalk.dim(regionsList)]);
+      const typeLabel = p.type ? chalk.dim(`[${p.type}]`) : '';
+      lines.push(`  - ${chalk.white.bold(p.name)} ${typeLabel}`);
     }
 
-    lines.push(table.toString());
     lines.push('');
     return lines.join('\n');
   }

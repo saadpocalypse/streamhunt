@@ -5,6 +5,5 @@ export * from './api.js';
 export * from './matcher.js';
 export * from './formatter.js';
 export * from './wizard.js';
-export * from './tui.js';
 export * from './utils/terminal.js';
 export * from './utils/browser.js';

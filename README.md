@@ -15,7 +15,7 @@
   - **[Rent]** & **[Buy]**: Digital video on-demand pricing and highest available resolution (4K/HD).
   - **[Other Sub]**: Other subscription providers with `--all`.
 - **Interactive Title Resolution:** If a query matches multiple titles (e.g., *"Batman"* or *"Breaking Bad"*), an interactive terminal prompt lets you choose the exact movie or TV series.
-- **Clickable Terminal Deep Links:** Direct stream URLs rendered as native OSC 8 hyperlinks (`-> Open Stream`) to launch directly into your browser or app.
+- **Clickable Terminal Deep Links:** Direct stream URLs rendered as native OSC 8 hyperlinks (`-> Open Link`) to launch directly into your browser or app.
 - **24-Hour Local Cache:** Cached in `~/.cache/streamhunt/` to minimize external HTTP requests and conserve Watchmode API quota.
 - **Interactive Config Wizard:** Run `streamhunt config` to configure your subscriptions, free tiers, and target region.
 - **Type-Safe and Robust:** Built with strict TypeScript, Zod schema validation, native `fetch` with timeout and rate-limit detection, and comprehensive unit tests.
