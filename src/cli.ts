@@ -3,7 +3,7 @@ import { Command } from 'commander';
 import ora from 'ora';
 import chalk from 'chalk';
 import boxen from 'boxen';
-import { select, input } from '@inquirer/prompts';
+import { select, input, Separator } from '@inquirer/prompts';
 import { WatchmodeClient, StreamHuntError } from './api.js';
 import {
   loadUserConfig,
@@ -22,6 +22,48 @@ import { runConfigWizard } from './wizard.js';
 import { formatMediaType, formatPrice } from './utils/terminal.js';
 import open from 'open';
 import type { SearchResultItem, CategorizedSource } from './types.js';
+
+function formatStreamChoice(source: CategorizedSource): string {
+  let badge: string;
+  switch (source.category) {
+    case 'paid_sub':
+      badge = chalk.green.bold('[Paid Sub]');
+      break;
+    case 'free_tier':
+      badge = chalk.yellow.bold('[Free Tier]');
+      break;
+    case 'included_free':
+      badge = chalk.green.bold('[Included Free]');
+      break;
+    case 'public_free':
+      badge = chalk.blue.bold('[Public Free]');
+      break;
+    case 'rent':
+      badge = chalk.magenta.bold('[Rent]');
+      break;
+    case 'buy':
+      badge = chalk.cyan.bold('[Buy]');
+      break;
+    default:
+      badge = chalk.gray.bold(`[${source.category}]`);
+      break;
+  }
+
+  let name = `${badge} ${source.providerName}`;
+  if (source.subDescription) {
+    name += ` ${chalk.dim(source.subDescription)}`;
+  }
+  if (source.price !== null && source.price !== undefined) {
+    name += ` ${chalk.yellow(formatPrice(source.price))}`;
+  }
+  if (source.format) {
+    const fmt = source.format.toUpperCase();
+    const fmtColor = fmt.includes('4K') ? chalk.hex('#FF9900').bold : chalk.dim;
+    name += ` ${fmtColor(`(${fmt})`)}`;
+  }
+
+  return name;
+}
 
 const program = new Command();
 
@@ -194,117 +236,134 @@ program
       // Step 4: Render cleanly and exit
       if (options.json) {
         console.log(JSON.stringify(matched, null, 2));
-      } else {
+      } else if (!process.stdin.isTTY) {
+        // Non-interactive (piped to file or command): print full static text
         console.log(
           Formatter.renderAvailability(matched, {
             includeAll: options.all,
             region,
           })
         );
+      } else {
+        // Interactive TTY: Print title card first
+        console.log(Formatter.renderTitleCard(matched));
+        console.log('');
 
-        // If interactive TTY, let user navigate streams to open one or select Done
-        if (process.stdin.isTTY) {
-          const availableStreams: CategorizedSource[] = [];
-          const candidateStreams = [
-            ...matched.paidSubscriptions,
-            ...matched.includedFree,
-            ...matched.freeTiers,
-            ...matched.publicFree,
+        const userStreams: CategorizedSource[] = [];
+        for (const s of [
+          ...matched.paidSubscriptions,
+          ...matched.includedFree,
+          ...matched.freeTiers,
+          ...matched.publicFree,
+        ]) {
+          if (s.webUrl && !userStreams.some((existing) => existing.webUrl === s.webUrl)) {
+            userStreams.push(s);
+          }
+        }
+
+        const otherStreams: CategorizedSource[] = [];
+        if (options.all || config.include_rent_buy) {
+          for (const s of [
             ...(options.all ? matched.otherSubscriptions : []),
-            ...(options.all || config.include_rent_buy
-              ? [...matched.rent, ...matched.buy]
-              : []),
-          ];
-
-          for (const s of candidateStreams) {
+            ...matched.rent,
+            ...matched.buy,
+          ]) {
             if (
               s.webUrl &&
-              !availableStreams.some((existing) => existing.webUrl === s.webUrl)
+              !userStreams.some((existing) => existing.webUrl === s.webUrl) &&
+              !otherStreams.some((existing) => existing.webUrl === s.webUrl)
             ) {
-              availableStreams.push(s);
+              otherStreams.push(s);
+            }
+          }
+        }
+
+        const totalStreams = userStreams.length + otherStreams.length;
+
+        if (totalStreams === 0) {
+          console.log(
+            `  ${chalk.yellow.bold('[Notice]')} ${chalk.white(
+              'Not currently streaming on your active subscriptions or free tiers.'
+            )}`
+          );
+          console.log(
+            `  ${chalk.dim('Tip: Use')} ${chalk.cyan('streamhunt "<title>" --all')} ${chalk.dim(
+              'to view digital purchase/rental options and other streaming providers.'
+            )}\n`
+          );
+        } else {
+          const streamChoices: Array<{ name: string; value: string } | Separator> = [];
+
+          if (userStreams.length === 0 && otherStreams.length > 0) {
+            console.log(
+              `  ${chalk.yellow.bold('[Notice]')} ${chalk.white(
+                'Not currently streaming on your active subscriptions or free tiers.'
+              )}\n`
+            );
+          }
+
+          if (userStreams.length > 0) {
+            if (otherStreams.length > 0) {
+              streamChoices.push(
+                new Separator(chalk.bold.underline('Included in Your Services & Free Platforms:'))
+              );
+            }
+            for (const s of userStreams) {
+              streamChoices.push({
+                name: formatStreamChoice(s),
+                value: s.webUrl!,
+              });
             }
           }
 
-          if (availableStreams.length > 0) {
-            const streamChoices = availableStreams.map((source) => {
-              let badge: string;
-              switch (source.category) {
-                case 'paid_sub':
-                  badge = chalk.green.bold('[Paid Sub]');
-                  break;
-                case 'free_tier':
-                  badge = chalk.yellow.bold('[Free Tier]');
-                  break;
-                case 'included_free':
-                  badge = chalk.green.bold('[Included Free]');
-                  break;
-                case 'public_free':
-                  badge = chalk.blue.bold('[Public Free]');
-                  break;
-                case 'rent':
-                  badge = chalk.magenta.bold('[Rent]');
-                  break;
-                case 'buy':
-                  badge = chalk.cyan.bold('[Buy]');
-                  break;
-                default:
-                  badge = chalk.gray.bold(`[${source.category}]`);
-                  break;
-              }
-
-              let name = `${badge} ${source.providerName}`;
-              if (source.subDescription) {
-                name += ` ${chalk.dim(source.subDescription)}`;
-              }
-              if (source.price !== null && source.price !== undefined) {
-                name += ` ${chalk.yellow(formatPrice(source.price))}`;
-              }
-              if (source.format) {
-                const fmt = source.format.toUpperCase();
-                const fmtColor = fmt.includes('4K')
-                  ? chalk.hex('#FF9900').bold
-                  : chalk.dim;
-                name += ` ${fmtColor(`(${fmt})`)}`;
-              }
-
-              return {
-                name,
-                value: source.webUrl!,
-              };
-            });
-
-            // At the bottom have Done, that just ends it and takes you back to normal terminal
-            streamChoices.push({
-              name: chalk.bold('Done') + chalk.dim(' (exit)'),
-              value: '__DONE__',
-            });
-
-            try {
-              const selectedUrl = await select({
-                message: 'Select a stream to open in your browser:',
-                choices: streamChoices,
-                pageSize: Math.max(streamChoices.length, 15),
-                loop: true,
+          if (otherStreams.length > 0) {
+            streamChoices.push(
+              new Separator(chalk.bold.underline('Other Platforms & Purchase / Rental (VOD):'))
+            );
+            for (const s of otherStreams) {
+              streamChoices.push({
+                name: formatStreamChoice(s),
+                value: s.webUrl!,
               });
-
-              if (selectedUrl && selectedUrl !== '__DONE__') {
-                await open(selectedUrl);
-                const chosen = availableStreams.find((s) => s.webUrl === selectedUrl);
-                console.log(
-                  chalk.green(
-                    `[OK] Opened ${chalk.bold(
-                      chosen?.providerName || 'stream'
-                    )} in your default browser.`
-                  )
-                );
-              }
-            } catch (err: any) {
-              if (err?.name === 'ExitPromptError' || err?.message?.includes('force closed')) {
-                process.exitCode = 0;
-                return;
-              }
-              throw err;
             }
+          }
+
+          if (otherStreams.length > 0) {
+            streamChoices.push(new Separator());
+          }
+
+          // At the bottom have Done, that just ends it and takes you back to normal terminal
+          streamChoices.push({
+            name: chalk.bold('Done') + chalk.dim(' (exit)'),
+            value: '__DONE__',
+          });
+
+          try {
+            const selectedUrl = await select({
+              message: 'Select a streaming service to open in your browser:',
+              choices: streamChoices,
+              pageSize: Math.max(streamChoices.length, 15),
+              loop: true,
+            });
+
+            if (selectedUrl && selectedUrl !== '__DONE__') {
+              await open(selectedUrl);
+              const allStreams = [...userStreams, ...otherStreams];
+              const chosen = allStreams.find((s) => s.webUrl === selectedUrl);
+              console.log(
+                chalk.green(
+                  `[OK] Opened ${chalk.bold(
+                    chosen?.providerName || 'stream'
+                  )} in your default browser.`
+                )
+              );
+            }
+          } catch (err: any) {
+            if (err?.name === 'ExitPromptError' || err?.message?.includes('force closed')) {
+              process.exitCode = 0;
+              return;
+            }
+            throw err;
           }
         }
       }
