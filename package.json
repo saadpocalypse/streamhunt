@@ -10,6 +10,7 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc",
+    "postbuild": "chmod +x dist/cli.js || true",
     "watch": "tsc --watch",
     "start": "node ./dist/cli.js",
     "dev": "tsx src/cli.ts",
