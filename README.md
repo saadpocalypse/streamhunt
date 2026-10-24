@@ -131,4 +131,4 @@ streamhunt cache clear
 
 ## License
 
-MIT (c) 2026 Ahmad Saad
+[MIT](LICENSE) (c) 2026 Ahmad Saad
