@@ -27,50 +27,7 @@ export class Formatter {
     const media = formatMediaType(title.type || details?.type);
     const yearStr = title.year ? ` (${title.year})` : '';
 
-    const titleLine = `${chalk.bold.white(title.name)}${chalk.dim(yearStr)}  |  ${chalk.cyan.bold(
-      media.label
-    )}`;
-
-    const metaParts: string[] = [];
-
-    if (details?.user_rating) {
-      metaParts.push(chalk.yellow(`Rating: ${details.user_rating.toFixed(1)}/10`));
-    }
-    if (details?.critic_score) {
-      metaParts.push(chalk.green(`Critic: ${details.critic_score}%`));
-    }
-    if (details?.runtime_minutes) {
-      metaParts.push(chalk.dim(`${details.runtime_minutes} min`));
-    }
-    if (details?.genre_names && details.genre_names.length > 0) {
-      metaParts.push(chalk.dim(details.genre_names.slice(0, 3).join(', ')));
-    }
-
-    let metaLine = '';
-    if (metaParts.length > 0) {
-      metaLine = metaParts.join(chalk.dim('  |  '));
-    }
-
-    let plotLine = '';
-    if (details?.plot_overview) {
-      const truncatedPlot = truncate(details.plot_overview, 175);
-      plotLine = chalk.dim.italic(truncatedPlot);
-    }
-
-    let body = `${titleLine}\n`;
-    if (metaLine) {
-      body += `${metaLine}\n`;
-    }
-    if (plotLine) {
-      body += `\n${plotLine}\n`;
-    }
-
-    return boxen(body.trimEnd(), {
-      padding: { top: 0, bottom: 0, left: 1, right: 1 },
-      margin: { top: 0, bottom: 0 },
-      borderStyle: 'round',
-      borderColor: 'cyan',
-    });
+    return `${chalk.bold.white(title.name)}${chalk.dim(yearStr)}  |  ${chalk.cyan(media.label)}`;
   }
 
   /**
@@ -152,15 +109,11 @@ export class Formatter {
       }
       lines.push('');
     } else {
+      lines.push(chalk.dim('Not available anywhere'));
       lines.push(
-        `  ${chalk.yellow.bold('[Notice]')} ${chalk.white(
-          'Not currently streaming on your active subscriptions or free tiers.'
-        )}`
-      );
-      lines.push(
-        `  ${chalk.dim('Tip: Use')} ${chalk.cyan('streamhunt "<title>" --all')} ${chalk.dim(
-          'to view digital purchase/rental options and other streaming providers.'
-        )}`
+        chalk.dim(
+          `Tip: Use streamhunt "${matched.title.name}" --all to view digital purchase/rental options.`
+        )
       );
       lines.push('');
     }

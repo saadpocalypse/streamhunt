@@ -286,13 +286,11 @@ program
         const totalStreams = userStreams.length + otherStreams.length;
 
         if (totalStreams === 0) {
+          console.log(chalk.dim('Not available anywhere'));
           console.log(
-            `  ${chalk.dim('Not currently streaming on your active subscriptions or free tiers.')}`
-          );
-          console.log(
-            `  ${chalk.dim('Tip: Use')} ${chalk.cyan(
-              `streamhunt "${selectedTitle.name}" --all`
-            )} ${chalk.dim('to view digital purchase/rental options.')}\n`
+            chalk.dim(
+              `Tip: Use streamhunt "${selectedTitle.name}" --all to view digital purchase/rental options.\n`
+            )
           );
         } else {
           const streamChoices: Array<{ name: string; value: string } | Separator> = [];
