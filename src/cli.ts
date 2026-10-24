@@ -14,6 +14,7 @@ import {
 } from './config.js';
 import { matchSources } from './matcher.js';
 import { Formatter } from './formatter.js';
+import { StreamHuntTui } from './tui.js';
 import { defaultCache } from './cache.js';
 import { runConfigWizard } from './wizard.js';
 import { formatMediaType } from './utils/terminal.js';
@@ -27,20 +28,34 @@ program
   .version('1.0.0');
 
 /**
- * Main lookup action: streamhunt <title>
+ * Main lookup action: streamhunt [title...]
  */
 program
   .argument('[title...]', 'Title of the movie or TV show to search for')
   .option('-a, --all', 'Display all platforms including rent, buy, and non-subscribed SVODs', false)
   .option('-r, --region <region>', 'Override target region code (e.g. US, GB, CA)')
   .option('--json', 'Output raw JSON result to stdout for scripting', false)
+  .option('--no-interactive', 'Print static Textual layout without interactive keyboard navigation')
   .option('--mock', 'Force offline mock mode for testing without using API quota', false)
   .action(async (titleParts: string[], options) => {
-    const query = titleParts.join(' ').trim();
+    let query = titleParts.join(' ').trim();
 
+    // If no title provided and in interactive terminal, prompt user
     if (!query) {
-      program.help();
-      return;
+      if (process.stdin.isTTY && !options.json) {
+        try {
+          const entered = await input({
+            message: 'Search movie or TV show title:',
+            validate: (val) => (val.trim().length > 0 ? true : 'Please enter a title.'),
+          });
+          query = entered.trim();
+        } catch {
+          return;
+        }
+      } else {
+        program.help();
+        return;
+      }
     }
 
     const config = loadUserConfig();
@@ -162,8 +177,20 @@ program
       // Step 4: Render
       if (options.json) {
         console.log(JSON.stringify(matched, null, 2));
+      } else if (!process.stdin.isTTY || options.interactive === false) {
+        console.log(
+          Formatter.renderAvailability(matched, {
+            includeAll: options.all,
+            region,
+            interactive: false,
+          })
+        );
       } else {
-        console.log(Formatter.renderAvailability(matched, { includeAll: options.all }));
+        const tui = new StreamHuntTui(matched, {
+          includeAll: options.all,
+          region,
+        });
+        await tui.start();
       }
     } catch (err: any) {
       if (spinner.isSpinning) {

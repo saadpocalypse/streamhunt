@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import boxen from 'boxen';
+import Table from 'cli-table3';
 import type {
   MatchedAvailability,
   CategorizedSource,
@@ -8,16 +9,25 @@ import type {
 } from './types.js';
 import { formatHyperlink, formatPrice, formatMediaType, truncate } from './utils/terminal.js';
 
+export interface RenderOptions {
+  includeAll?: boolean;
+  region?: string;
+  selectedIndex?: number;
+  interactive?: boolean;
+}
+
 export class Formatter {
   /**
-   * Renders a styled title card box for a movie or TV show
+   * Renders a clean Textual-style header panel for the movie or TV show
    */
-  static renderTitleCard(matched: MatchedAvailability): string {
+  static renderTitleCard(matched: MatchedAvailability, region: string = 'US'): string {
     const { title, details } = matched;
     const media = formatMediaType(title.type || details?.type);
     const yearStr = title.year ? ` (${title.year})` : '';
 
-    let content = `${chalk.bold.white(title.name)}${chalk.dim(yearStr)}  |  ${chalk.cyan(media.label)}`;
+    const titleLine = `${chalk.bold.white(title.name)}${chalk.dim(yearStr)}  |  ${chalk.cyan.bold(
+      media.label
+    )}`;
 
     const metaParts: string[] = [];
 
@@ -34,130 +44,206 @@ export class Formatter {
       metaParts.push(chalk.dim(details.genre_names.slice(0, 3).join(', ')));
     }
 
+    let metaLine = '';
     if (metaParts.length > 0) {
-      content += `\n${metaParts.join(chalk.dim('  |  '))}`;
+      metaLine = metaParts.join(chalk.dim('  |  '));
     }
 
+    let plotLine = '';
     if (details?.plot_overview) {
-      const truncatedPlot = truncate(details.plot_overview, 180);
-      content += `\n\n${chalk.italic.gray(truncatedPlot)}`;
+      const truncatedPlot = truncate(details.plot_overview, 175);
+      plotLine = chalk.dim.italic(truncatedPlot);
     }
 
-    return boxen(content, {
-      padding: { top: 0, bottom: 0, left: 1, right: 1 },
-      margin: { top: 1, bottom: 0 },
+    let body = `  ${titleLine}\n`;
+    if (metaLine) {
+      body += `  ${metaLine}\n`;
+    }
+    if (plotLine) {
+      body += `\n  ${plotLine}\n`;
+    }
+
+    return boxen(body.trimEnd(), {
+      title: chalk.bold.cyan(' STREAMHUNT ') + chalk.dim(`[Region: ${region.toUpperCase()}]`),
+      titleAlignment: 'left',
+      padding: { top: 0, bottom: 0, left: 0, right: 1 },
+      margin: { top: 0, bottom: 0 },
       borderStyle: 'round',
       borderColor: 'cyan',
     });
   }
 
   /**
-   * Formats a single streaming source line with badges, resolution, price, and clickable link
+   * Creates a stylized cli-table3 table formatted like a Textual panel
    */
-  private static formatSourceLine(source: CategorizedSource): string {
-    let badge: string;
-
-    switch (source.category) {
-      case 'paid_sub':
-        badge = chalk.green.bold('[Paid Sub]');
-        break;
-      case 'free_tier':
-        badge = chalk.yellow.bold('[Free Tier]');
-        break;
-      case 'included_free':
-        badge = chalk.green.bold('[Included Free]');
-        break;
-      case 'public_free':
-        badge = chalk.blue.bold('[Public Free]');
-        break;
-      case 'rent':
-        badge = chalk.magenta.bold('[Rent]');
-        break;
-      case 'buy':
-        badge = chalk.cyan.bold('[Buy]');
-        break;
-      case 'other_sub':
-      default:
-        badge = chalk.gray.bold('[Other Sub]');
-        break;
-    }
-
-    let line = `  ${badge}  ${chalk.bold.white(source.providerName)}`;
-
-    if (source.subDescription) {
-      line += ` ${chalk.dim(source.subDescription)}`;
-    }
-
-    if (source.price !== null && source.price !== undefined) {
-      line += ` ${chalk.yellow(formatPrice(source.price))}`;
-    }
-
-    if (source.format) {
-      const fmt = source.format.toUpperCase();
-      const fmtColor = fmt.includes('4K') ? chalk.hex('#FF9900') : chalk.gray;
-      line += ` ${fmtColor(`(${fmt})`)}`;
-    }
-
-    if (source.webUrl) {
-      const linkText = chalk.dim.underline('-> Open Stream');
-      const clickable = formatHyperlink(linkText, source.webUrl);
-      line += `  ${clickable}`;
-    }
-
-    return line;
+  private static createSectionTable(
+    headers: string[] = ['STATUS', 'PROVIDER', 'DETAILS', 'QUALITY', 'PRICE', 'ACTION']
+  ): Table.Table {
+    return new Table({
+      head: headers.map((h) => chalk.cyan.bold(h)),
+      chars: {
+        top: '─',
+        'top-mid': '┬',
+        'top-left': '┌',
+        'top-right': '┐',
+        bottom: '─',
+        'bottom-mid': '┴',
+        'bottom-left': '└',
+        'bottom-right': '┘',
+        left: '│',
+        'left-mid': '├',
+        mid: '─',
+        'mid-mid': '┼',
+        right: '│',
+        'right-mid': '┤',
+        middle: '│',
+      },
+      style: {
+        'padding-left': 1,
+        'padding-right': 1,
+        head: [],
+        border: ['dim'],
+      },
+    });
   }
 
   /**
-   * Renders the complete availability report
+   * Formats a row in the table, with optional interactive highlight
    */
-  static renderAvailability(matched: MatchedAvailability, options: { includeAll?: boolean } = {}): string {
-    const lines: string[] = [];
+  private static formatTableRow(
+    source: CategorizedSource,
+    isHighlighted: boolean = false
+  ): string[] {
+    let statusBadge: string;
+    let priceText: string;
+    let detailsText: string = source.subDescription || '-';
 
-    // Header Card
-    lines.push(this.renderTitleCard(matched));
+    switch (source.category) {
+      case 'paid_sub':
+        statusBadge = chalk.green.bold('[Paid Sub]');
+        priceText = chalk.green('Included');
+        if (!source.subDescription) detailsText = 'Subscription included';
+        break;
+      case 'free_tier':
+        statusBadge = chalk.yellow.bold('[Free Tier]');
+        priceText = chalk.yellow('Free');
+        if (!source.subDescription) detailsText = 'Freestream / Free channels';
+        break;
+      case 'included_free':
+        statusBadge = chalk.green.bold('[Included Free]');
+        priceText = chalk.green('Free');
+        if (!source.subDescription) detailsText = 'Free on paid service';
+        break;
+      case 'public_free':
+        statusBadge = chalk.blue.bold('[Public Free]');
+        priceText = chalk.blue('Free');
+        if (!source.subDescription) detailsText = 'Ad-supported';
+        break;
+      case 'rent':
+        statusBadge = chalk.magenta.bold('[Rent]');
+        priceText = chalk.yellow(formatPrice(source.price));
+        detailsText = 'Digital rental';
+        break;
+      case 'buy':
+        statusBadge = chalk.cyan.bold('[Buy]');
+        priceText = chalk.yellow(formatPrice(source.price));
+        detailsText = 'Digital purchase';
+        break;
+      case 'other_sub':
+      default:
+        statusBadge = chalk.gray.bold('[Other Sub]');
+        priceText = chalk.dim('Sub Req');
+        detailsText = 'Separate subscription';
+        break;
+    }
+
+    let providerText = source.providerName;
+    if (isHighlighted) {
+      providerText = chalk.bold.underline(providerText);
+    } else {
+      providerText = chalk.bold.white(providerText);
+    }
+
+    let qualityText = chalk.dim('SD');
+    if (source.format) {
+      const fmt = source.format.toUpperCase();
+      if (fmt.includes('4K') || fmt.includes('UHD')) {
+        qualityText = chalk.hex('#FF9900').bold('4K');
+      } else if (fmt.includes('HD') || fmt.includes('1080') || fmt.includes('720')) {
+        qualityText = chalk.cyan('HD');
+      } else {
+        qualityText = chalk.dim(fmt);
+      }
+    }
+
+    let actionText = chalk.dim('-');
+    if (source.webUrl) {
+      const linkLabel = isHighlighted ? '-> [Open Stream]' : '-> Open Stream';
+      actionText = formatHyperlink(chalk.dim.underline(linkLabel), source.webUrl);
+    }
+
+    const pointer = isHighlighted ? chalk.cyan.bold('>') : ' ';
+    const formattedStatus = `${pointer} ${statusBadge}`;
+
+    return [
+      formattedStatus,
+      providerText,
+      chalk.dim(detailsText),
+      qualityText,
+      priceText,
+      actionText,
+    ];
+  }
+
+  /**
+   * Renders the complete Textual-inspired availability interface
+   */
+  static renderAvailability(
+    matched: MatchedAvailability,
+    options: RenderOptions = {}
+  ): string {
+    const lines: string[] = [];
+    const region = options.region || 'US';
+
+    // 1. Header Card
+    lines.push(this.renderTitleCard(matched, region));
     lines.push('');
 
-    const hasUserMatches = matched.userAvailableCount > 0;
+    // Combine user available streams
+    const userStreams = [
+      ...matched.paidSubscriptions,
+      ...matched.includedFree,
+      ...matched.freeTiers,
+      ...matched.publicFree,
+    ];
 
-    if (hasUserMatches) {
-      lines.push(chalk.bold.underline('Where to Watch (Included in your services / free):'));
-      lines.push('');
+    let currentIndex = 0;
+    const selectedIdx = options.selectedIndex ?? -1;
 
-      if (matched.paidSubscriptions.length > 0) {
-        for (const src of matched.paidSubscriptions) {
-          lines.push(this.formatSourceLine(src));
-        }
+    // 2. Included Streams Section
+    if (userStreams.length > 0) {
+      lines.push(
+        chalk.bold.green('  INCLUDED IN YOUR SERVICES & FREE PLATFORMS')
+      );
+
+      const table = this.createSectionTable();
+      for (const src of userStreams) {
+        const isHighlighted = options.interactive && currentIndex === selectedIdx;
+        table.push(this.formatTableRow(src, isHighlighted));
+        currentIndex++;
       }
-
-      if (matched.includedFree.length > 0) {
-        for (const src of matched.includedFree) {
-          lines.push(this.formatSourceLine(src));
-        }
-      }
-
-      if (matched.freeTiers.length > 0) {
-        for (const src of matched.freeTiers) {
-          lines.push(this.formatSourceLine(src));
-        }
-      }
-
-      if (matched.publicFree.length > 0) {
-        for (const src of matched.publicFree) {
-          lines.push(this.formatSourceLine(src));
-        }
-      }
-
+      lines.push(table.toString());
       lines.push('');
     } else {
       lines.push(
         boxen(
           `${chalk.yellow.bold('[Notice] Not currently streaming on your active subscriptions or free tiers.')}\n\n` +
             `${chalk.dim('Tip: Use ')}${chalk.cyan('streamhunt "<title>" --all')}${chalk.dim(
-              ' to see Rent/Buy prices and other streaming services.'
+              ' to view digital purchase/rental options and other streaming providers.'
             )}`,
           {
             padding: 1,
-            borderStyle: 'single',
+            borderStyle: 'round',
             borderColor: 'yellow',
           }
         )
@@ -165,53 +251,66 @@ export class Formatter {
       lines.push('');
     }
 
-    // Additional sections if --all is specified or rent/buy configured
-    const showRentBuy = options.includeAll || matched.rent.length > 0 || matched.buy.length > 0;
-
+    // 3. Other Subscription Platforms (when --all is enabled)
     if (options.includeAll && matched.otherSubscriptions.length > 0) {
-      lines.push(chalk.bold.underline('Other Subscription Platforms (Not in your subscriptions):'));
-      lines.push('');
+      lines.push(
+        chalk.bold.gray('  OTHER SUBSCRIPTION PLATFORMS (Requires separate signup)')
+      );
+
+      const table = this.createSectionTable();
       for (const src of matched.otherSubscriptions) {
-        lines.push(this.formatSourceLine(src));
+        const isHighlighted = options.interactive && currentIndex === selectedIdx;
+        table.push(this.formatTableRow(src, isHighlighted));
+        currentIndex++;
       }
+      lines.push(table.toString());
       lines.push('');
     }
 
-    if (showRentBuy && (matched.rent.length > 0 || matched.buy.length > 0)) {
-      lines.push(chalk.bold.underline('Digital Purchase / Rental (VOD):'));
-      lines.push('');
+    // 4. Digital Purchase & Rental (VOD)
+    const showVod = options.includeAll || matched.rent.length > 0 || matched.buy.length > 0;
+    const vodSources = [...matched.rent, ...matched.buy];
 
-      if (matched.rent.length > 0) {
-        lines.push(`  ${chalk.dim('Available for Rent:')}`);
-        for (const src of matched.rent.slice(0, 4)) {
-          lines.push(this.formatSourceLine(src));
-        }
+    if (showVod && vodSources.length > 0) {
+      lines.push(
+        chalk.bold.magenta('  DIGITAL PURCHASE & RENTAL (VOD)')
+      );
+
+      const table = this.createSectionTable();
+      for (const src of vodSources.slice(0, 8)) {
+        const isHighlighted = options.interactive && currentIndex === selectedIdx;
+        table.push(this.formatTableRow(src, isHighlighted));
+        currentIndex++;
       }
-
-      if (matched.buy.length > 0) {
-        lines.push(`  ${chalk.dim('Available to Buy:')}`);
-        for (const src of matched.buy.slice(0, 4)) {
-          lines.push(this.formatSourceLine(src));
-        }
-      }
-
+      lines.push(table.toString());
       lines.push('');
+    }
+
+    // 5. Interactive Footer Bar
+    if (options.interactive) {
+      lines.push(
+        chalk.dim(
+          '  [Up/Down] Navigate  [Enter] Open Stream  [a] Toggle All/Rent  [/] New Search  [q] Quit'
+        )
+      );
     }
 
     return lines.join('\n');
   }
 
   /**
-   * Renders the list of supported providers in the region
+   * Renders the list of supported providers in the region with fixed-width tabular formatting
    */
   static renderProvidersList(providers: Provider[], region: string): string {
     const lines: string[] = [];
 
     lines.push(
       boxen(
-        `${chalk.bold.white(`Supported Streaming Providers for Region:`)} ${chalk.cyan.bold(region)}\n` +
+        `${chalk.bold.white('Supported Streaming Providers for Region:')} ${chalk.cyan.bold(
+          region
+        )}\n` +
           `${chalk.dim('Total providers found:')} ${chalk.green(providers.length)}\n` +
-          `${chalk.dim('Use these exact names in your ~/.streamhunt/config.json')}`,
+          `${chalk.dim('Configure exact names in ~/.streamhunt/config.json')}`,
         {
           padding: 1,
           borderStyle: 'round',
@@ -221,12 +320,42 @@ export class Formatter {
     );
     lines.push('');
 
-    // Group into columns or clean list
+    const table = new Table({
+      head: ['PROVIDER NAME', 'DEFAULT TYPE', 'SUPPORTED REGIONS'].map((h) =>
+        chalk.cyan.bold(h)
+      ),
+      chars: {
+        top: '─',
+        'top-mid': '┬',
+        'top-left': '┌',
+        'top-right': '┐',
+        bottom: '─',
+        'bottom-mid': '┴',
+        'bottom-left': '└',
+        'bottom-right': '┘',
+        left: '│',
+        'left-mid': '├',
+        mid: '─',
+        'mid-mid': '┼',
+        right: '│',
+        'right-mid': '┤',
+        middle: '│',
+      },
+      style: {
+        'padding-left': 1,
+        'padding-right': 1,
+        head: [],
+        border: ['dim'],
+      },
+    });
+
     for (const p of providers) {
-      const typeBadge = p.type ? chalk.dim(`[${p.type}]`) : '';
-      lines.push(`  - ${chalk.white.bold(p.name)} ${typeBadge}`);
+      const typeLabel = p.type ? chalk.bold(p.type.toUpperCase()) : chalk.dim('-');
+      const regionsList = p.regions ? p.regions.slice(0, 5).join(', ') : region;
+      table.push([chalk.white.bold(p.name), typeLabel, chalk.dim(regionsList)]);
     }
 
+    lines.push(table.toString());
     lines.push('');
     return lines.join('\n');
   }
