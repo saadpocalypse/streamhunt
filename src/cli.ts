@@ -2,9 +2,16 @@
 import { Command } from 'commander';
 import ora from 'ora';
 import chalk from 'chalk';
-import { select } from '@inquirer/prompts';
+import boxen from 'boxen';
+import { select, input } from '@inquirer/prompts';
 import { WatchmodeClient, StreamHuntError } from './api.js';
-import { loadUserConfig, resolveRegion } from './config.js';
+import {
+  loadUserConfig,
+  resolveRegion,
+  getApiKey,
+  saveApiKey,
+  maskApiKey,
+} from './config.js';
 import { matchSources } from './matcher.js';
 import { Formatter } from './formatter.js';
 import { defaultCache } from './cache.js';
@@ -38,7 +45,44 @@ program
 
     const config = loadUserConfig();
     const region = resolveRegion(options.region, config);
+
+    // Ensure API key is configured; prompt user interactively on first run if missing
+    let apiKey = getApiKey(config);
+    if (!apiKey && !options.mock && !options.json && process.stdin.isTTY) {
+      console.log(
+        boxen(
+          `${chalk.bold.yellow('Watchmode API Key Required')}\n\n` +
+            `${chalk.white('streamhunt queries streaming data through the Watchmode API.')}\n` +
+            `${chalk.dim('Sign up for a free key at:')} ${chalk.cyan('https://api.watchmode.com/')}`,
+          {
+            padding: 1,
+            borderStyle: 'round',
+            borderColor: 'yellow',
+          }
+        )
+      );
+
+      try {
+        const entered = await input({
+          message: 'Enter your Watchmode API key:',
+          validate: (val) =>
+            val.trim().length > 5 ? true : 'Please enter a valid API key.',
+        });
+        apiKey = entered.trim();
+        saveApiKey(apiKey);
+        config.api_key = apiKey;
+        console.log(
+          chalk.green(`[OK] API key saved to ~/.streamhunt/config.json\n`)
+        );
+      } catch {
+        console.log(chalk.dim('\nSearch cancelled.'));
+        process.exitCode = 1;
+        return;
+      }
+    }
+
     const client = new WatchmodeClient({
+      apiKey,
       mockMode:
         options.mock ||
         process.env.STREAMHUNT_MOCK === 'true' ||
@@ -158,18 +202,52 @@ program
   });
 
 /**
- * Config command: streamhunt config [--list-providers]
+ * Config command: streamhunt config [--set-key <key>] [--show-key] [--list-providers]
  */
 const configCmd = program
   .command('config')
-  .description('Interactive wizard to configure subscribed streaming services and region')
+  .description('Manage Watchmode API key, streaming subscriptions, and default region')
+  .option('--set-key <key>', 'Save Watchmode API key directly to ~/.streamhunt/config.json')
+  .option('--show-key', 'Display currently configured API key (masked)')
   .option('-l, --list-providers', 'List all supported provider names for region in Watchmode')
   .option('-r, --region <region>', 'Region code for listing providers (default: US)')
   .option('--mock', 'Run in mock mode', false)
   .action(async (options) => {
+    // 1. Direct API key setter: streamhunt config --set-key <key>
+    if (options.setKey) {
+      const keyToSet = options.setKey.trim();
+      if (keyToSet.length < 5) {
+        console.log(chalk.red('[Error] Invalid API key provided.'));
+        process.exitCode = 1;
+        return;
+      }
+      saveApiKey(keyToSet);
+      console.log(
+        chalk.green(
+          `[OK] API key successfully saved to ~/.streamhunt/config.json: ${chalk.cyan(
+            maskApiKey(keyToSet)
+          )}`
+        )
+      );
+      return;
+    }
+
+    // 2. Display configured key: streamhunt config --show-key
+    if (options.showKey) {
+      const config = loadUserConfig();
+      const key = getApiKey(config);
+      console.log(
+        `${chalk.bold('Configured API Key:')} ${
+          key ? chalk.cyan(maskApiKey(key)) : chalk.yellow('Not configured')
+        }`
+      );
+      return;
+    }
+
     const config = loadUserConfig();
     const region = resolveRegion(options.region, config);
 
+    // 3. List providers: streamhunt config --list-providers
     if (options.listProviders) {
       const spinner = ora(`Fetching supported streaming providers for ${chalk.bold(region)}...`).start();
       try {
@@ -194,7 +272,7 @@ const configCmd = program
       return;
     }
 
-    // Run interactive config wizard
+    // 4. Run interactive config wizard
     try {
       await runConfigWizard();
     } catch (err: any) {

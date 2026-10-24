@@ -4,6 +4,7 @@ import { z } from 'zod';
  * User configuration stored in ~/.streamhunt/config.json
  */
 export const ConfigSchema = z.object({
+  api_key: z.string().optional(),
   region: z.string().default('US'),
   subscriptions: z.object({
     paid: z.array(z.string()).default(['Max', 'Philo']),

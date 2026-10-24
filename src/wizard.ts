@@ -5,6 +5,8 @@ import {
   loadUserConfig,
   saveUserConfig,
   getConfigPath,
+  getApiKey,
+  maskApiKey,
   DEFAULT_CONFIG,
 } from './config.js';
 import type { StreamHuntConfig } from './types.js';
@@ -36,7 +38,7 @@ export async function runConfigWizard(): Promise<void> {
   console.log(
     boxen(
       `${chalk.bold.cyan('Streamhunt Configuration Wizard')}\n` +
-        `${chalk.dim('Configure your streaming subscriptions, free accounts, and region.')}\n` +
+        `${chalk.dim('Configure your Watchmode API key, streaming subscriptions, and region.')}\n` +
         `${chalk.dim('Saved to:')} ${chalk.white(getConfigPath())}`,
       {
         padding: 1,
@@ -48,7 +50,15 @@ export async function runConfigWizard(): Promise<void> {
 
   const current = loadUserConfig();
 
-  // 1. Region
+  // 1. Watchmode API Key
+  const currentKey = current.api_key || getApiKey(current);
+  const keyDisplay = currentKey ? ` (${maskApiKey(currentKey)})` : '';
+  const enteredApiKey = await input({
+    message: `Watchmode API Key${keyDisplay} [Sign up at https://api.watchmode.com/]:`,
+    default: currentKey || '',
+  });
+
+  // 2. Region
   const region = await input({
     message: 'Default Target Market / Region Code (e.g., US, GB, CA):',
     default: current.region || 'US',
@@ -56,7 +66,7 @@ export async function runConfigWizard(): Promise<void> {
       val.trim().length >= 2 ? true : 'Please enter a valid 2-letter country code.',
   });
 
-  // 2. Paid Subscriptions
+  // 3. Paid Subscriptions
   // Merge current paid with popular list for choice presentation
   const paidChoices = Array.from(
     new Set([...current.subscriptions.paid, ...POPULAR_PAID_PROVIDERS])
@@ -84,7 +94,7 @@ export async function runConfigWizard(): Promise<void> {
     selectedPaid.push(...extra);
   }
 
-  // 3. Free Tier Accounts
+  // 4. Free Tier Accounts
   const freeTierChoices = Array.from(
     new Set([...current.subscriptions.free_tier_only, ...POPULAR_FREE_TIERS])
   ).map((name) => ({
@@ -111,19 +121,20 @@ export async function runConfigWizard(): Promise<void> {
     selectedFreeTiers.push(...extra);
   }
 
-  // 4. Always include public free
+  // 5. Always include public free
   const publicFree = await confirm({
     message: 'Always include public free ad-supported platforms (e.g., Tubi, Pluto TV)?',
     default: current.always_include_public_free,
   });
 
-  // 5. Default rent/buy inclusion
+  // 6. Default rent/buy inclusion
   const includeRentBuy = await confirm({
     message: 'Include Rent & Buy platforms by default on every search?',
     default: current.include_rent_buy,
   });
 
   const updatedConfig: StreamHuntConfig = {
+    api_key: enteredApiKey.trim() || currentKey || undefined,
     region: region.trim().toUpperCase(),
     subscriptions: {
       paid: selectedPaid,
@@ -138,6 +149,7 @@ export async function runConfigWizard(): Promise<void> {
   console.log(
     boxen(
       `${chalk.bold.green('Configuration Saved Successfully!')}\n\n` +
+        `${chalk.bold('Watchmode API Key:')} ${chalk.cyan(maskApiKey(updatedConfig.api_key))}\n` +
         `${chalk.bold('Region:')} ${chalk.cyan(updatedConfig.region)}\n` +
         `${chalk.bold('Paid Subscriptions:')} ${chalk.green(
           updatedConfig.subscriptions.paid.join(', ') || 'None'

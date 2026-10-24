@@ -77,6 +77,14 @@ export function loadUserConfig(): StreamHuntConfig {
 
     const raw = fs.readFileSync(CONFIG_FILE, 'utf-8');
     const parsedJson = JSON.parse(raw);
+
+    // If config has no api_key yet, but an environment key is present, auto-seed it into config
+    const envKey = process.env.WATCHMODE_API_KEY?.trim() || process.env.STREAMHUNT_API_KEY?.trim();
+    if (!parsedJson.api_key && envKey && envKey.length > 0) {
+      parsedJson.api_key = envKey;
+      saveUserConfig(parsedJson);
+    }
+
     const validated = ConfigSchema.safeParse(parsedJson);
 
     if (!validated.success) {
@@ -111,15 +119,42 @@ export function saveUserConfig(config: StreamHuntConfig): void {
 }
 
 /**
- * Retrieves the Watchmode API key from environment variables.
+ * Retrieves the Watchmode API key.
+ * Priority: Shell ENV (WATCHMODE_API_KEY / STREAMHUNT_API_KEY) > ~/.streamhunt/config.json (api_key)
  */
-export function getApiKey(): string | undefined {
-  return (
+export function getApiKey(userConfig?: StreamHuntConfig): string | undefined {
+  const envKey =
     process.env.WATCHMODE_API_KEY?.trim() ||
     process.env.STREAMHUNT_API_KEY?.trim() ||
-    process.env.STREAMFIND_API_KEY?.trim() ||
-    undefined
-  );
+    process.env.STREAMFIND_API_KEY?.trim();
+
+  if (envKey && envKey.length > 0) {
+    return envKey;
+  }
+
+  const config = userConfig || loadUserConfig();
+  if (config.api_key && config.api_key.trim().length > 0) {
+    return config.api_key.trim();
+  }
+
+  return undefined;
+}
+
+/**
+ * Directly updates and saves the Watchmode API key into ~/.streamhunt/config.json
+ */
+export function saveApiKey(apiKey: string): void {
+  const config = loadUserConfig();
+  config.api_key = apiKey.trim();
+  saveUserConfig(config);
+}
+
+/**
+ * Helper to mask an API key for safe display
+ */
+export function maskApiKey(key?: string): string {
+  if (!key || key.length < 8) return key ? '****' : 'Not configured';
+  return `••••••••••••${key.slice(-4)}`;
 }
 
 /**

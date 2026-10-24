@@ -28,32 +28,40 @@
 - **Node.js** v20.0.0 or higher
 - **Watchmode API Key** (Free tier available at [api.watchmode.com](https://api.watchmode.com/))
 
-### 2. Install Dependencies and Build
+### 2. Global Installation (via npm)
+```bash
+npm install -g streamhunt
+```
+
+Or for local development from source:
 ```bash
 git clone https://github.com/your-username/streamhunt.git
 cd streamhunt
 npm install
 npm run build
-```
-
-### 3. Expose Globally
-Expose `streamhunt` across your entire system shell:
-```bash
 npm link
 ```
-Verify the installation:
+
+### 3. Configure Your API Key
+You can configure your key in any of the following ways (no local `.env` required):
+
+**Option A: Fast one-liner**
 ```bash
-streamhunt --version
+streamhunt config --set-key YOUR_WATCHMODE_API_KEY
 ```
 
-### 4. Configure Your API Key
-Add your key to the project `.env` file or export it in your shell (`~/.zshrc` / `~/.bashrc`):
+**Option B: Automatic on first search**
+Simply run your first search. If no key is detected, `streamhunt` will prompt you to enter it and save it automatically:
 ```bash
-# In your .env file:
-WATCHMODE_API_KEY=your_watchmode_api_key_here
-STREAMHUNT_DEFAULT_REGION=US
+streamhunt "The Dark Knight"
 ```
-Or export directly:
+
+**Option C: Interactive wizard**
+```bash
+streamhunt config
+```
+
+**Option D: Environment variable (Optional / CI)**
 ```bash
 export WATCHMODE_API_KEY="your_watchmode_api_key_here"
 ```
@@ -122,6 +130,7 @@ streamhunt config --list-providers --region GB
 You can edit `~/.streamhunt/config.json` directly:
 ```json
 {
+  "api_key": "your_watchmode_api_key_here",
   "region": "US",
   "subscriptions": {
     "paid": [
