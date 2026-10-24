@@ -177,3 +177,66 @@ export function resolveRegion(cliRegion?: string, userConfig?: StreamHuntConfig)
   const config = loadUserConfig();
   return (config.region || 'US').toUpperCase();
 }
+
+/**
+ * Adds services to paid or free-tier subscription lists in ~/.streamhunt/config.json
+ */
+export function addServices(
+  tier: 'paid' | 'free_tier_only',
+  serviceNames: string[]
+): { added: string[]; existing: string[]; config: StreamHuntConfig } {
+  const config = loadUserConfig();
+  const list = config.subscriptions[tier] || [];
+  const added: string[] = [];
+  const existing: string[] = [];
+
+  for (const rawName of serviceNames) {
+    const trimmed = rawName.trim();
+    if (!trimmed) continue;
+    const alreadyPresent = list.some(
+      (item) => item.toLowerCase() === trimmed.toLowerCase() || item.replace(/[^a-z0-9]/gi, '') === trimmed.replace(/[^a-z0-9]/gi, '')
+    );
+    if (alreadyPresent) {
+      existing.push(trimmed);
+    } else {
+      list.push(trimmed);
+      added.push(trimmed);
+    }
+  }
+
+  config.subscriptions[tier] = list;
+  saveUserConfig(config);
+  return { added, existing, config };
+}
+
+/**
+ * Removes services from paid or free-tier subscription lists in ~/.streamhunt/config.json
+ */
+export function removeServices(
+  tier: 'paid' | 'free_tier_only',
+  serviceNames: string[]
+): { removed: string[]; notFound: string[]; config: StreamHuntConfig } {
+  const config = loadUserConfig();
+  const list = config.subscriptions[tier] || [];
+  const removed: string[] = [];
+  const notFound: string[] = [];
+
+  for (const rawName of serviceNames) {
+    const trimmed = rawName.trim();
+    if (!trimmed) continue;
+    const matchIndex = list.findIndex(
+      (item) => item.toLowerCase() === trimmed.toLowerCase() || item.replace(/[^a-z0-9]/gi, '') === trimmed.replace(/[^a-z0-9]/gi, '')
+    );
+    if (matchIndex >= 0) {
+      removed.push(list[matchIndex]);
+      list.splice(matchIndex, 1);
+    } else {
+      notFound.push(trimmed);
+    }
+  }
+
+  config.subscriptions[tier] = list;
+  saveUserConfig(config);
+  return { removed, notFound, config };
+}
+

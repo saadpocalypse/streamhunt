@@ -5,6 +5,7 @@ import type {
   CategorizedSource,
   Provider,
   TitleDetails,
+  StreamHuntConfig,
 } from './types.js';
 import { formatHyperlink, formatPrice, formatMediaType, truncate } from './utils/terminal.js';
 
@@ -251,4 +252,53 @@ export class Formatter {
       borderColor: 'red',
     });
   }
+
+  /**
+   * Renders a clean summary of current configuration
+   */
+  static renderConfigSummary(config: StreamHuntConfig): string {
+    const key = config.api_key;
+    const masked =
+      key && key.length >= 8
+        ? `••••••••••••${key.slice(-4)}`
+        : key
+        ? '••••'
+        : 'Not configured';
+
+    const paidList =
+      config.subscriptions.paid.length > 0
+        ? config.subscriptions.paid.map((s) => chalk.green(`  - ${s}`)).join('\n')
+        : chalk.dim('  None');
+
+    const freeList =
+      config.subscriptions.free_tier_only.length > 0
+        ? config.subscriptions.free_tier_only.map((s) => chalk.yellow(`  - ${s}`)).join('\n')
+        : chalk.dim('  None');
+
+    const body =
+      `${chalk.bold.cyan('Active Streamhunt Configuration')}\n\n` +
+      `${chalk.bold('Watchmode API Key:')} ${chalk.white(masked)}\n` +
+      `${chalk.bold('Region:')} ${chalk.cyan(config.region || 'US')}\n` +
+      `${chalk.bold('Public Free Platforms:')} ${
+        config.always_include_public_free
+          ? chalk.green('Always Included')
+          : chalk.dim('Excluded')
+      }\n` +
+      `${chalk.bold('Include Rent/Buy by Default:')} ${
+        config.include_rent_buy ? chalk.green('Yes') : chalk.dim('No')
+      }\n\n` +
+      `${chalk.bold('Paid Subscriptions:')} (${chalk.green(
+        config.subscriptions.paid.length
+      )})\n${paidList}\n\n` +
+      `${chalk.bold('Free Tier Accounts:')} (${chalk.yellow(
+        config.subscriptions.free_tier_only.length
+      )})\n${freeList}`;
+
+    return boxen(body, {
+      padding: 1,
+      borderStyle: 'round',
+      borderColor: 'cyan',
+    });
+  }
 }
+

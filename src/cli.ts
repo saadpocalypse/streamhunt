@@ -7,10 +7,13 @@ import { select, input } from '@inquirer/prompts';
 import { WatchmodeClient, StreamHuntError } from './api.js';
 import {
   loadUserConfig,
+  saveUserConfig,
   resolveRegion,
   getApiKey,
   saveApiKey,
   maskApiKey,
+  addServices,
+  removeServices,
 } from './config.js';
 import { matchSources } from './matcher.js';
 import { Formatter } from './formatter.js';
@@ -220,18 +223,31 @@ program
   });
 
 /**
- * Config command: streamhunt config [--set-key <key>] [--show-key] [--list-providers]
+ * Config command: streamhunt config [options]
  */
 const configCmd = program
   .command('config')
   .description('Manage Watchmode API key, streaming subscriptions, and default region')
+  .option('--show', 'Display currently configured API key, subscriptions, and settings')
   .option('--set-key <key>', 'Save Watchmode API key directly to ~/.streamhunt/config.json')
   .option('--show-key', 'Display currently configured API key (masked)')
+  .option('--add-paid <services>', 'Add comma-separated services to paid subscriptions')
+  .option('--remove-paid <services>', 'Remove comma-separated services from paid subscriptions')
+  .option('--add-free <services>', 'Add comma-separated services to free-tier accounts')
+  .option('--remove-free <services>', 'Remove comma-separated services from free-tier accounts')
+  .option('--set-region <region>', 'Update default region (e.g. US, GB, CA)')
   .option('-l, --list-providers', 'List all supported provider names for region in Watchmode')
   .option('-r, --region <region>', 'Region code for listing providers (default: US)')
   .option('--mock', 'Run in mock mode', false)
   .action(async (options) => {
-    // 1. Direct API key setter: streamhunt config --set-key <key>
+    // 1. Display full active configuration: streamhunt config --show
+    if (options.show) {
+      const config = loadUserConfig();
+      console.log(Formatter.renderConfigSummary(config));
+      return;
+    }
+
+    // 2. Direct API key setter: streamhunt config --set-key <key>
     if (options.setKey) {
       const keyToSet = options.setKey.trim();
       if (keyToSet.length < 5) {
@@ -250,7 +266,7 @@ const configCmd = program
       return;
     }
 
-    // 2. Display configured key: streamhunt config --show-key
+    // 3. Display configured key: streamhunt config --show-key
     if (options.showKey) {
       const config = loadUserConfig();
       const key = getApiKey(config);
@@ -262,10 +278,76 @@ const configCmd = program
       return;
     }
 
+    // 4. Update default region: streamhunt config --set-region <region>
+    if (options.setRegion) {
+      const config = loadUserConfig();
+      const newRegion = options.setRegion.trim().toUpperCase();
+      config.region = newRegion;
+      saveUserConfig(config);
+      console.log(chalk.green(`[OK] Default region updated to ${chalk.cyan.bold(newRegion)}.`));
+      return;
+    }
+
+    // 5. Add services to paid subscriptions: streamhunt config --add-paid "Netflix, Disney+"
+    if (options.addPaid) {
+      const names = options.addPaid.split(',').map((s: string) => s.trim()).filter(Boolean);
+      const res = addServices('paid', names);
+      if (res.added.length > 0) {
+        console.log(chalk.green(`[OK] Added to paid subscriptions: ${chalk.cyan(res.added.join(', '))}`));
+      }
+      if (res.existing.length > 0) {
+        console.log(chalk.dim(`Already present: ${res.existing.join(', ')}`));
+      }
+      console.log(`${chalk.bold('Active Paid Subscriptions:')} ${res.config.subscriptions.paid.join(', ') || 'None'}`);
+      return;
+    }
+
+    // 6. Remove services from paid subscriptions: streamhunt config --remove-paid "Max"
+    if (options.removePaid) {
+      const names = options.removePaid.split(',').map((s: string) => s.trim()).filter(Boolean);
+      const res = removeServices('paid', names);
+      if (res.removed.length > 0) {
+        console.log(chalk.green(`[OK] Removed from paid subscriptions: ${chalk.yellow(res.removed.join(', '))}`));
+      }
+      if (res.notFound.length > 0) {
+        console.log(chalk.dim(`Not found in paid subscriptions: ${res.notFound.join(', ')}`));
+      }
+      console.log(`${chalk.bold('Active Paid Subscriptions:')} ${res.config.subscriptions.paid.join(', ') || 'None'}`);
+      return;
+    }
+
+    // 7. Add services to free-tier accounts: streamhunt config --add-free "Tubi, Plex"
+    if (options.addFree) {
+      const names = options.addFree.split(',').map((s: string) => s.trim()).filter(Boolean);
+      const res = addServices('free_tier_only', names);
+      if (res.added.length > 0) {
+        console.log(chalk.green(`[OK] Added to free-tier accounts: ${chalk.cyan(res.added.join(', '))}`));
+      }
+      if (res.existing.length > 0) {
+        console.log(chalk.dim(`Already present: ${res.existing.join(', ')}`));
+      }
+      console.log(`${chalk.bold('Active Free-Tier Accounts:')} ${res.config.subscriptions.free_tier_only.join(', ') || 'None'}`);
+      return;
+    }
+
+    // 8. Remove services from free-tier accounts: streamhunt config --remove-free "Sling TV"
+    if (options.removeFree) {
+      const names = options.removeFree.split(',').map((s: string) => s.trim()).filter(Boolean);
+      const res = removeServices('free_tier_only', names);
+      if (res.removed.length > 0) {
+        console.log(chalk.green(`[OK] Removed from free-tier accounts: ${chalk.yellow(res.removed.join(', '))}`));
+      }
+      if (res.notFound.length > 0) {
+        console.log(chalk.dim(`Not found in free-tier accounts: ${res.notFound.join(', ')}`));
+      }
+      console.log(`${chalk.bold('Active Free-Tier Accounts:')} ${res.config.subscriptions.free_tier_only.join(', ') || 'None'}`);
+      return;
+    }
+
     const config = loadUserConfig();
     const region = resolveRegion(options.region, config);
 
-    // 3. List providers: streamhunt config --list-providers
+    // 9. List providers: streamhunt config --list-providers
     if (options.listProviders) {
       const spinner = ora(`Fetching supported streaming providers for ${chalk.bold(region)}...`).start();
       try {
@@ -290,7 +372,7 @@ const configCmd = program
       return;
     }
 
-    // 4. Run interactive config wizard
+    // 10. Default: Run interactive config wizard
     try {
       await runConfigWizard();
     } catch (err: any) {

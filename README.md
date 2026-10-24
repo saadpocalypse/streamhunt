@@ -110,14 +110,40 @@ streamhunt "Severance" --json
 
 User preferences are stored at `~/.streamhunt/config.json`. The file is automatically created with sensible defaults on first run.
 
+### View Active Subscriptions and Settings
+Display a formatted card of your active subscriptions, free tiers, and region:
+```bash
+streamhunt config --show
+```
+
+### Add Services (Terminal One-Liners)
+Add one or more services (comma-separated) to your paid subscriptions or free-tier accounts:
+```bash
+# Add paid subscriptions
+streamhunt config --add-paid "Netflix, Apple TV+"
+
+# Add free-tier accounts
+streamhunt config --add-free "Tubi, Plex"
+```
+
+### Remove Services (Terminal One-Liners)
+Remove services when you cancel or change subscriptions:
+```bash
+# Remove from paid subscriptions
+streamhunt config --remove-paid "Disney+, Hulu"
+
+# Remove from free-tier accounts
+streamhunt config --remove-free "Sling TV"
+```
+
 ### Interactive Configuration Wizard
-Run the interactive CLI wizard to select your paid subscriptions, free-tier accounts, and preferences:
+Alternatively, run the interactive CLI wizard to toggle services using an interactive checkbox menu (Spacebar to toggle, Enter to confirm):
 ```bash
 streamhunt config
 ```
 
 ### List Supported Providers in Your Region
-Inspect the exact names recognized by Watchmode (useful for verifying spelling like `"Sling TV"` vs `"Philo"`):
+Inspect all platforms recognized by Watchmode in your region:
 ```bash
 streamhunt config --list-providers
 ```
