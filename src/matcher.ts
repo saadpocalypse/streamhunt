@@ -213,7 +213,16 @@ export function matchSources(
       }
     } else if (src.type === 'free') {
       if (isFreeTierUserAcc) {
-        // Free tier account like Sling Freestream, Plex free channels
+        let subDescription = '(Free)';
+        const lowerName = src.name.toLowerCase();
+        if (lowerName.includes('sling')) subDescription = '(Freestream)';
+        else if (lowerName.includes('philo')) subDescription = '(Free Channels)';
+        else if (lowerName.includes('tubi') || lowerName.includes('pluto')) subDescription = '(Ad-supported)';
+        else if (lowerName.includes('youtube')) subDescription = '(Free with Ads)';
+        else if (lowerName.includes('plex')) subDescription = '(Free Movies & TV)';
+        else if (lowerName.includes('hoopla')) subDescription = '(Library Card)';
+        else if (lowerName.includes('roku')) subDescription = '(Free on Roku)';
+
         freeTiers.push({
           sourceId: src.source_id,
           providerName: src.name,
@@ -224,7 +233,7 @@ export function matchSources(
           webUrl: src.web_url,
           badgeLabel: '[Free Tier]',
           tagColor: 'yellow',
-          subDescription: '(Freestream / Free channels)',
+          subDescription,
         });
       } else if (isPaidUserSub) {
         // Provider is in user's paid subscriptions, but content is streamed free

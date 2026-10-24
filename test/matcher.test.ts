@@ -65,7 +65,7 @@ describe('Matcher and Categorization Engine', () => {
     assert.equal(result.freeTiers[0].providerName, 'Sling TV');
     assert.equal(result.freeTiers[0].category, 'free_tier');
     assert.equal(result.freeTiers[0].badgeLabel, '[Free Tier]');
-    assert.equal(result.freeTiers[0].subDescription, '(Freestream / Free channels)');
+    assert.equal(result.freeTiers[0].subDescription, '(Freestream)');
   });
 
   it('categorizes free stream from paid subscription as [Included Free]', () => {
