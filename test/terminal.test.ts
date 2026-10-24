@@ -1,13 +1,22 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  normalizeUrl,
-  getModifierKey,
-  formatHyperlink,
-  supportsOsc8Hyperlinks,
-} from '../src/utils/terminal.js';
+import { normalizeUrl, formatHyperlink, shouldEmitHyperlinks } from '../src/utils/terminal.js';
 
-describe('Terminal Utilities & Cross-Platform Link Handling', () => {
+function withForceHyperlink(value: string, fn: () => void): void {
+  const original = process.env.FORCE_HYPERLINK;
+  try {
+    process.env.FORCE_HYPERLINK = value;
+    fn();
+  } finally {
+    if (original !== undefined) {
+      process.env.FORCE_HYPERLINK = original;
+    } else {
+      delete process.env.FORCE_HYPERLINK;
+    }
+  }
+}
+
+describe('Terminal Utilities & Hyperlinks', () => {
   it('normalizes URLs ensuring valid protocol', () => {
     assert.equal(normalizeUrl('https://disneyplus.com'), 'https://disneyplus.com');
     assert.equal(normalizeUrl('http://example.com'), 'http://example.com');
@@ -17,64 +26,25 @@ describe('Terminal Utilities & Cross-Platform Link Handling', () => {
     assert.equal(normalizeUrl(''), null);
   });
 
-  it('resolves correct platform modifier key', () => {
-    const mod = getModifierKey();
-    if (process.platform === 'darwin') {
-      assert.equal(mod, 'Cmd');
-    } else {
-      assert.equal(mod, 'Ctrl');
-    }
+  it('respects FORCE_HYPERLINK override', () => {
+    withForceHyperlink('1', () => assert.equal(shouldEmitHyperlinks(), true));
+    withForceHyperlink('0', () => assert.equal(shouldEmitHyperlinks(), false));
   });
 
-  it('respects FORCE_HYPERLINK environment override', () => {
-    const original = process.env.FORCE_HYPERLINK;
-    try {
-      process.env.FORCE_HYPERLINK = '1';
-      assert.equal(supportsOsc8Hyperlinks(), true);
-
-      process.env.FORCE_HYPERLINK = '0';
-      assert.equal(supportsOsc8Hyperlinks(), false);
-    } finally {
-      if (original !== undefined) {
-        process.env.FORCE_HYPERLINK = original;
-      } else {
-        delete process.env.FORCE_HYPERLINK;
-      }
-    }
-  });
-
-  it('formats OSC 8 hyperlinks with styling inside escape bounds when supported', () => {
-    const original = process.env.FORCE_HYPERLINK;
-    try {
-      process.env.FORCE_HYPERLINK = '1';
+  it('renders an OSC 8 "Open Link" hyperlink when enabled', () => {
+    withForceHyperlink('1', () => {
       const link = formatHyperlink('Open Link', 'https://disneyplus.com');
-      // Must contain standard OSC 8 escape prefix and suffix
-      assert.ok(link.includes('\u001b]8;;https://disneyplus.com\u0007'));
-      assert.ok(link.includes('\u001b]8;;\u0007'));
+      assert.ok(link.startsWith('\u001b]8;;https://disneyplus.com\u0007'));
+      assert.ok(link.endsWith('\u001b]8;;\u0007'));
       assert.ok(link.includes('Open Link'));
-    } finally {
-      if (original !== undefined) {
-        process.env.FORCE_HYPERLINK = original;
-      } else {
-        delete process.env.FORCE_HYPERLINK;
-      }
-    }
+      assert.ok(!link.includes('Cmd') && !link.includes('Ctrl'));
+    });
   });
 
-  it('falls back to styled raw URL when hyperlinks are disabled', () => {
-    const original = process.env.FORCE_HYPERLINK;
-    try {
-      process.env.FORCE_HYPERLINK = '0';
+  it('prints the raw URL when hyperlinks are disabled (piped output)', () => {
+    withForceHyperlink('0', () => {
       const link = formatHyperlink('Open Link', 'https://disneyplus.com');
-      assert.ok(!link.includes('\u001b]8;;'));
-      assert.ok(link.includes('https://disneyplus.com'));
-    } finally {
-      if (original !== undefined) {
-        process.env.FORCE_HYPERLINK = original;
-      } else {
-        delete process.env.FORCE_HYPERLINK;
-      }
-    }
+      assert.equal(link, 'https://disneyplus.com');
+    });
   });
 });
-

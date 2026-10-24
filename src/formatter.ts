@@ -10,7 +10,6 @@ import type {
 import {
   formatHyperlink,
   normalizeUrl,
-  getModifierKey,
   formatPrice,
   formatMediaType,
   truncate,
@@ -161,13 +160,6 @@ export class Formatter {
       for (const src of userStreams) {
         lines.push(this.formatSourceBullet(src));
       }
-      lines.push('');
-      const mod = getModifierKey();
-      lines.push(
-        chalk.dim(
-          `  Tip: Click or ${mod}+Click links to open in browser, or use -o / -i to launch directly.`
-        )
-      );
       lines.push('');
     } else {
       lines.push(
