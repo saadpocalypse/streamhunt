@@ -36,6 +36,7 @@ program
   .argument('[title...]', 'Title of the movie or TV show to search for')
   .option('-a, --all', 'Display all platforms including rent, buy, and non-subscribed SVODs', false)
   .option('-o, --open', 'Automatically open the top stream in your default browser', false)
+  .option('-i, --interactive', 'Interactively select a streaming service to open in your browser', false)
   .option('-r, --region <region>', 'Override target region code (e.g. US, GB, CA)')
   .option('--json', 'Output raw JSON result to stdout for scripting', false)
   .option('--mock', 'Force offline mock mode for testing without using API quota', false)
@@ -198,7 +199,7 @@ program
             matched.buy[0];
 
           if (topStream?.webUrl) {
-            openInBrowser(topStream.webUrl);
+            await openInBrowser(topStream.webUrl);
             console.log(
               chalk.green(
                 `[OK] Opened ${chalk.bold(topStream.providerName)} in your default browser.`
@@ -206,6 +207,55 @@ program
             );
           } else {
             console.log(chalk.yellow('[Notice] No stream web link available to open.'));
+          }
+        } else if (options.interactive && process.stdin.isTTY) {
+          const allStreamsWithUrls = [
+            ...matched.paidSubscriptions,
+            ...matched.includedFree,
+            ...matched.freeTiers,
+            ...matched.publicFree,
+            ...(options.all ? matched.otherSubscriptions : []),
+            ...matched.rent,
+            ...matched.buy,
+          ].filter((s) => Boolean(s.webUrl));
+
+          if (allStreamsWithUrls.length > 0) {
+            const choices = allStreamsWithUrls.map((s) => {
+              const categoryBadge = `[${s.category.toUpperCase().replace('_', ' ')}]`;
+              const priceStr =
+                s.price !== null && s.price !== undefined ? ` - $${s.price.toFixed(2)}` : '';
+              const formatStr = s.format ? ` (${s.format.toUpperCase()})` : '';
+              return {
+                name: `${categoryBadge} ${s.providerName}${priceStr}${formatStr}`,
+                value: s.webUrl!,
+              };
+            });
+
+            choices.push({
+              name: chalk.dim('Cancel (do not open any link)'),
+              value: '',
+            });
+
+            try {
+              const selectedUrl = await select({
+                message: 'Select a streaming service to launch in your browser:',
+                choices,
+              });
+
+              if (selectedUrl) {
+                await openInBrowser(selectedUrl);
+                const chosenItem = allStreamsWithUrls.find((s) => s.webUrl === selectedUrl);
+                console.log(
+                  chalk.green(
+                    `[OK] Opened ${chalk.bold(
+                      chosenItem?.providerName || 'stream'
+                    )} in your default browser.`
+                  )
+                );
+              }
+            } catch {
+              // User cancelled or interrupted prompt
+            }
           }
         }
       }

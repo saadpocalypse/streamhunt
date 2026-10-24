@@ -1,4 +1,5 @@
-import terminalLink from 'terminal-link';
+import chalk from 'chalk';
+import open from 'open';
 import { exec } from 'node:child_process';
 
 /**
@@ -14,18 +15,104 @@ export function normalizeUrl(url?: string | null): string | null {
 }
 
 /**
- * Creates a clickable terminal hyperlink that works in both OSC 8 terminals
- * (iTerm2, VS Code, Kitty, Warp) and standard terminals (like default macOS Terminal.app)
- * by falling back to the full URL when OSC 8 is not supported.
+ * Detects whether the current terminal emulator supports OSC 8 hyperlinks.
+ * Works seamlessly across Windows (Windows Terminal, VS Code, WezTerm, ConEmu),
+ * macOS (VS Code, iTerm2, Kitty, Ghostty, Warp, WezTerm), and Linux.
  */
-export function formatHyperlink(text: string, url?: string | null): string {
-  if (!url) return text;
-  const cleanUrl = normalizeUrl(url);
-  if (!cleanUrl) return text;
+export function supportsOsc8Hyperlinks(): boolean {
+  if (process.env.FORCE_HYPERLINK) {
+    return !(
+      process.env.FORCE_HYPERLINK.length > 0 &&
+      parseInt(process.env.FORCE_HYPERLINK, 10) === 0
+    );
+  }
 
-  return terminalLink(text, cleanUrl, {
-    fallback: (_t, u) => u,
-  });
+  if (
+    process.argv.some((arg) =>
+      ['--no-hyperlink', '--no-hyperlinks', '--hyperlink=false', '--hyperlink=never'].includes(arg)
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    process.argv.some((arg) =>
+      ['--hyperlink', '--hyperlink=true', '--hyperlink=always'].includes(arg)
+    )
+  ) {
+    return true;
+  }
+
+  // Windows Terminal (Windows 10 / 11) - full native OSC 8 support
+  if (process.env.WT_SESSION) {
+    return true;
+  }
+
+  // VS Code, Cursor, Windsurf, Antigravity integrated terminal on Windows, Mac, Linux
+  if (process.env.TERM_PROGRAM === 'vscode' || process.env.CURSOR_TRACE_ID) {
+    return true;
+  }
+
+  // Apple Terminal.app on macOS does NOT support OSC 8 hyperlinks
+  if (process.env.TERM_PROGRAM === 'Apple_Terminal') {
+    return false;
+  }
+
+  const termProg = (process.env.TERM_PROGRAM || '').toLowerCase();
+  if (
+    [
+      'iterm.app',
+      'wezterm',
+      'ghostty',
+      'zed',
+      'warpterminal',
+      'alacritty',
+      'hyper',
+    ].includes(termProg)
+  ) {
+    return true;
+  }
+
+  // ConEmu / Cmder on Windows
+  if (process.env.ConEmuANSI === 'ON') {
+    return true;
+  }
+
+  const term = (process.env.TERM || '').toLowerCase();
+  if (['xterm-kitty', 'alacritty', 'wezterm'].includes(term)) {
+    return true;
+  }
+
+  // Modern Windows consoles (Windows 10 19041+ / Windows 11) support OSC 8
+  if (process.platform === 'win32') {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Creates a clickable terminal hyperlink.
+ * When OSC 8 is supported (Windows Terminal, VS Code, iTerm2, Kitty, Ghostty, Warp),
+ * it outputs standard OSC 8 escape sequence with styled text inside, triggering
+ * the pointer cursor (hand cursor) on hover across Windows, macOS, and Linux.
+ * In terminals without OSC 8 support (e.g. macOS Terminal.app), it outputs the
+ * clean raw URL so the terminal's built-in URL detector makes it clickable.
+ */
+export function formatHyperlink(label: string, url?: string | null): string {
+  if (!url) return label;
+  const cleanUrl = normalizeUrl(url);
+  if (!cleanUrl) return label;
+
+  if (supportsOsc8Hyperlinks()) {
+    // Standard OSC 8 sequence: \x1b]8;;URL\x07LABEL\x1b]8;;\x07
+    // Color/underline styling must be INSIDE the OSC 8 sequence so terminal parsers
+    // cleanly trigger the pointer cursor (hand icon) on hover without ANSI corruption.
+    return `\u001b]8;;${cleanUrl}\u0007${chalk.cyan.underline(label)}\u001b]8;;\u0007`;
+  }
+
+  // Fallback for non-OSC 8 terminals (e.g. macOS Terminal.app)
+  return chalk.cyan.underline(cleanUrl);
 }
 
 /**
@@ -37,18 +124,27 @@ export function getModifierKey(): string {
 
 /**
  * Opens a URL in the user's default browser (cross-platform: macOS, Windows, Linux)
+ * Uses the battle-tested 'open' package with graceful child_process fallback.
  */
-export function openInBrowser(url: string): void {
+export async function openInBrowser(url: string): Promise<boolean> {
   const clean = normalizeUrl(url);
-  if (!clean) return;
+  if (!clean) return false;
 
-  if (process.platform === 'darwin') {
-    exec(`open "${clean}"`);
-  } else if (process.platform === 'win32') {
-    // On Windows, 'start "" "url"' is required so cmd doesn't treat the URL as window title
-    exec(`start "" "${clean}"`);
-  } else {
-    exec(`xdg-open "${clean}"`);
+  try {
+    await open(clean);
+    return true;
+  } catch {
+    return new Promise<boolean>((resolve) => {
+      let cmd: string;
+      if (process.platform === 'darwin') {
+        cmd = `open "${clean}"`;
+      } else if (process.platform === 'win32') {
+        cmd = `start "" "${clean}"`;
+      } else {
+        cmd = `xdg-open "${clean}"`;
+      }
+      exec(cmd, (err) => resolve(!err));
+    });
   }
 }
 
@@ -78,3 +174,4 @@ export function formatMediaType(type?: string | null): { label: string } {
   }
   return { label: 'Movie' };
 }
+

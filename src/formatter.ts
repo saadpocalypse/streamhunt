@@ -126,8 +126,8 @@ export class Formatter {
     if (source.webUrl) {
       const cleanUrl = normalizeUrl(source.webUrl);
       if (cleanUrl) {
-        const clickable = formatHyperlink('Open Link', cleanUrl);
-        line += `  -> ${chalk.cyan.underline(clickable)}`;
+        const linkStr = formatHyperlink('Open Link', cleanUrl);
+        line += `  -> ${linkStr}`;
       }
     }
 
@@ -165,7 +165,7 @@ export class Formatter {
       const mod = getModifierKey();
       lines.push(
         chalk.dim(
-          `  Tip: ${mod}+Click on links to open in browser, or use -o / --open to launch directly.`
+          `  Tip: Click or ${mod}+Click links to open in browser, or use -o / -i to launch directly.`
         )
       );
       lines.push('');

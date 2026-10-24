@@ -15,7 +15,8 @@
   - **[Rent]** & **[Buy]**: Digital video on-demand pricing and highest available resolution (4K/HD).
   - **[Other Sub]**: Other subscription providers with `--all`.
 - **Interactive Title Resolution:** If a query matches multiple titles (e.g., *"Batman"* or *"Breaking Bad"*), an interactive terminal prompt lets you choose the exact movie or TV series.
-- **Clickable Terminal Deep Links:** Direct stream URLs rendered as native OSC 8 hyperlinks (`-> Open Link`) to launch directly into your browser or app.
+- **Clickable Terminal Deep Links & Pointer Cursor:** Direct stream URLs rendered as native OSC 8 hyperlinks (`-> Open Link`). Hovering over links displays a pointer hand cursor across modern terminals (Windows Terminal, VS Code, iTerm2, Kitty, Ghostty, Warp, WezTerm). Use `Ctrl+Click` on Windows/Linux, `Cmd+Click` on macOS, or pass `-o` / `-i` to launch in your browser.
+- **Direct Browser Launch (`-o` and `-i`):** Automatically launch the top stream with `-o`, or interactively choose a provider with arrow keys using `-i`.
 - **24-Hour Local Cache:** Cached in `~/.cache/streamhunt/` to minimize external HTTP requests and conserve Watchmode API quota.
 - **Interactive Config Wizard:** Run `streamhunt config` to configure your subscriptions, free tiers, and target region.
 - **Type-Safe and Robust:** Built with strict TypeScript, Zod schema validation, native `fetch` with timeout and rate-limit detection, and comprehensive unit tests.
@@ -85,20 +86,32 @@ If multiple fuzzy matches exist, an interactive prompt will appear:
   El Camino: A Breaking Bad Movie (2019) | [Movie]
 ```
 
-### 2. View All Platforms (Rent, Buy & Non-Subscribed Services)
+### 2. Automatically Open Top Stream in Browser (`-o` / `--open`)
+Immediately launches the highest-priority streaming service in your default browser:
+```bash
+streamhunt "The Dark Knight" -o
+```
+
+### 3. Interactively Select and Launch a Stream (`-i` / `--interactive`)
+Presents an interactive menu where you can navigate with the arrow keys and launch any available stream:
+```bash
+streamhunt "Child's Play" -i
+```
+
+### 4. View All Platforms (Rent, Buy & Non-Subscribed Services)
 Pass `-a` or `--all` to display digital purchase/rental prices and other SVOD services:
 ```bash
 streamhunt "Inception" --all
 ```
 
-### 3. Override Target Market / Country Region
+### 5. Override Target Market / Country Region
 Query availability in Canada, Great Britain, etc.:
 ```bash
 streamhunt "Dune" --region GB
 streamhunt "Succession" --region CA
 ```
 
-### 4. JSON Output (Scripting & Automation)
+### 6. JSON Output (Scripting & Automation)
 Output machine-readable JSON for integration into scripts or Raycast/Alfred workflows:
 ```bash
 streamhunt "Severance" --json
