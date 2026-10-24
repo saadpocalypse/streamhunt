@@ -19,8 +19,9 @@ import { matchSources } from './matcher.js';
 import { Formatter } from './formatter.js';
 import { defaultCache } from './cache.js';
 import { runConfigWizard } from './wizard.js';
-import { formatMediaType } from './utils/terminal.js';
-import type { SearchResultItem } from './types.js';
+import { formatMediaType, formatPrice } from './utils/terminal.js';
+import open from 'open';
+import type { SearchResultItem, CategorizedSource } from './types.js';
 
 const program = new Command();
 
@@ -137,8 +138,13 @@ program
         if (!options.json) {
           spinner.stop();
 
-          // Interactive prompt for multiple results
-          const choices = searchResults.slice(0, 10).map((item) => {
+          // Deduplicate multiple results by unique title ID
+          const uniqueResults = searchResults.filter(
+            (item, idx, self) => idx === self.findIndex((t) => t.id === item.id)
+          );
+
+          // Interactive prompt for multiple results: list all copies
+          const choices = uniqueResults.map((item) => {
             const media = formatMediaType(item.type);
             const yearStr = item.year ? `(${item.year})` : '(Year N/A)';
             return {
@@ -147,10 +153,20 @@ program
             };
           });
 
-          selectedTitle = await select({
-            message: `Multiple matches found for "${query}". Select title:`,
-            choices,
-          });
+          try {
+            selectedTitle = await select({
+              message: `Multiple matches found for "${query}". Select title:`,
+              choices,
+              pageSize: Math.max(choices.length, 15),
+              loop: true,
+            });
+          } catch (err: any) {
+            if (err?.name === 'ExitPromptError' || err?.message?.includes('force closed')) {
+              process.exitCode = 0;
+              return;
+            }
+            throw err;
+          }
         } else {
           selectedTitle = searchResults[0];
         }
@@ -185,10 +201,121 @@ program
             region,
           })
         );
+
+        // If interactive TTY, let user navigate streams to open one or select Done
+        if (process.stdin.isTTY) {
+          const availableStreams: CategorizedSource[] = [];
+          const candidateStreams = [
+            ...matched.paidSubscriptions,
+            ...matched.includedFree,
+            ...matched.freeTiers,
+            ...matched.publicFree,
+            ...(options.all ? matched.otherSubscriptions : []),
+            ...(options.all || config.include_rent_buy
+              ? [...matched.rent, ...matched.buy]
+              : []),
+          ];
+
+          for (const s of candidateStreams) {
+            if (
+              s.webUrl &&
+              !availableStreams.some((existing) => existing.webUrl === s.webUrl)
+            ) {
+              availableStreams.push(s);
+            }
+          }
+
+          if (availableStreams.length > 0) {
+            const streamChoices = availableStreams.map((source) => {
+              let badge: string;
+              switch (source.category) {
+                case 'paid_sub':
+                  badge = chalk.green.bold('[Paid Sub]');
+                  break;
+                case 'free_tier':
+                  badge = chalk.yellow.bold('[Free Tier]');
+                  break;
+                case 'included_free':
+                  badge = chalk.green.bold('[Included Free]');
+                  break;
+                case 'public_free':
+                  badge = chalk.blue.bold('[Public Free]');
+                  break;
+                case 'rent':
+                  badge = chalk.magenta.bold('[Rent]');
+                  break;
+                case 'buy':
+                  badge = chalk.cyan.bold('[Buy]');
+                  break;
+                default:
+                  badge = chalk.gray.bold(`[${source.category}]`);
+                  break;
+              }
+
+              let name = `${badge} ${source.providerName}`;
+              if (source.subDescription) {
+                name += ` ${chalk.dim(source.subDescription)}`;
+              }
+              if (source.price !== null && source.price !== undefined) {
+                name += ` ${chalk.yellow(formatPrice(source.price))}`;
+              }
+              if (source.format) {
+                const fmt = source.format.toUpperCase();
+                const fmtColor = fmt.includes('4K')
+                  ? chalk.hex('#FF9900').bold
+                  : chalk.dim;
+                name += ` ${fmtColor(`(${fmt})`)}`;
+              }
+
+              return {
+                name,
+                value: source.webUrl!,
+              };
+            });
+
+            // At the bottom have Done, that just ends it and takes you back to normal terminal
+            streamChoices.push({
+              name: chalk.bold('Done') + chalk.dim(' (exit)'),
+              value: '__DONE__',
+            });
+
+            try {
+              const selectedUrl = await select({
+                message: 'Select a stream to open in your browser:',
+                choices: streamChoices,
+                pageSize: Math.max(streamChoices.length, 15),
+                loop: true,
+              });
+
+              if (selectedUrl && selectedUrl !== '__DONE__') {
+                await open(selectedUrl);
+                const chosen = availableStreams.find((s) => s.webUrl === selectedUrl);
+                console.log(
+                  chalk.green(
+                    `[OK] Opened ${chalk.bold(
+                      chosen?.providerName || 'stream'
+                    )} in your default browser.`
+                  )
+                );
+              }
+            } catch (err: any) {
+              if (err?.name === 'ExitPromptError' || err?.message?.includes('force closed')) {
+                process.exitCode = 0;
+                return;
+              }
+              throw err;
+            }
+          }
+        }
       }
     } catch (err: any) {
       if (spinner.isSpinning) {
         spinner.stop();
+      }
+
+      if (err?.name === 'ExitPromptError' || err?.message?.includes('force closed')) {
+        process.exitCode = 0;
+        return;
       }
 
       if (options.json) {

@@ -8,8 +8,6 @@ import type {
   StreamHuntConfig,
 } from './types.js';
 import {
-  formatHyperlink,
-  normalizeUrl,
   formatPrice,
   formatMediaType,
   truncate,
@@ -120,14 +118,6 @@ export class Formatter {
       const fmt = source.format.toUpperCase();
       const fmtColor = fmt.includes('4K') ? chalk.hex('#FF9900').bold : chalk.dim;
       line += ` ${fmtColor(`(${fmt})`)}`;
-    }
-
-    if (source.webUrl) {
-      const cleanUrl = normalizeUrl(source.webUrl);
-      if (cleanUrl) {
-        const linkStr = formatHyperlink('Open Link', cleanUrl);
-        line += `  -> ${linkStr}`;
-      }
     }
 
     return line;
