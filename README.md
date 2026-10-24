@@ -179,4 +179,4 @@ Feel free to check out the [issues page](https://github.com/saadpocalypse/stream
 
 ## License
 
-[MIT](LICENSE) © 2026 Ahmad Saad
+This project is licensed under the MIT License, see the [LICENSE](LICENSE) file for details.
