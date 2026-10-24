@@ -29,18 +29,27 @@ export function formatHyperlink(text: string, url?: string | null): string {
 }
 
 /**
+ * Returns the platform-appropriate terminal link modifier key (Cmd on macOS, Ctrl on Windows/Linux)
+ */
+export function getModifierKey(): string {
+  return process.platform === 'darwin' ? 'Cmd' : 'Ctrl';
+}
+
+/**
  * Opens a URL in the user's default browser (cross-platform: macOS, Windows, Linux)
  */
 export function openInBrowser(url: string): void {
   const clean = normalizeUrl(url);
   if (!clean) return;
-  const cmd =
-    process.platform === 'darwin'
-      ? 'open'
-      : process.platform === 'win32'
-      ? 'start'
-      : 'xdg-open';
-  exec(`${cmd} "${clean}"`);
+
+  if (process.platform === 'darwin') {
+    exec(`open "${clean}"`);
+  } else if (process.platform === 'win32') {
+    // On Windows, 'start "" "url"' is required so cmd doesn't treat the URL as window title
+    exec(`start "" "${clean}"`);
+  } else {
+    exec(`xdg-open "${clean}"`);
+  }
 }
 
 /**

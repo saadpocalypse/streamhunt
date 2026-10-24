@@ -10,6 +10,7 @@ import type {
 import {
   formatHyperlink,
   normalizeUrl,
+  getModifierKey,
   formatPrice,
   formatMediaType,
   truncate,
@@ -161,9 +162,10 @@ export class Formatter {
         lines.push(this.formatSourceBullet(src));
       }
       lines.push('');
+      const mod = getModifierKey();
       lines.push(
         chalk.dim(
-          '  Tip: Hold Command (⌘) and click any link to open in your browser, or use -o to launch directly.'
+          `  Tip: ${mod}+Click on links to open in browser, or use -o / --open to launch directly.`
         )
       );
       lines.push('');
