@@ -1,3 +1,6 @@
+import terminalLink from 'terminal-link';
+import { exec } from 'node:child_process';
+
 /**
  * Normalizes and ensures a valid web URL with protocol
  */
@@ -12,15 +15,32 @@ export function normalizeUrl(url?: string | null): string | null {
 
 /**
  * Creates a clickable terminal hyperlink that works in both OSC 8 terminals
- * and standard terminals (like default macOS Terminal.app).
+ * (iTerm2, VS Code, Kitty, Warp) and standard terminals (like default macOS Terminal.app)
+ * by falling back to the full URL when OSC 8 is not supported.
  */
 export function formatHyperlink(text: string, url?: string | null): string {
   if (!url) return text;
   const cleanUrl = normalizeUrl(url);
   if (!cleanUrl) return text;
 
-  // OSC 8 hyperlink sequence: \u001b]8;;URL\u0007TEXT\u001b]8;;\u0007
-  return `\u001B]8;;${cleanUrl}\u0007${text}\u001B]8;;\u0007`;
+  return terminalLink(text, cleanUrl, {
+    fallback: (_t, u) => u,
+  });
+}
+
+/**
+ * Opens a URL in the user's default browser (cross-platform: macOS, Windows, Linux)
+ */
+export function openInBrowser(url: string): void {
+  const clean = normalizeUrl(url);
+  if (!clean) return;
+  const cmd =
+    process.platform === 'darwin'
+      ? 'open'
+      : process.platform === 'win32'
+      ? 'start'
+      : 'xdg-open';
+  exec(`${cmd} "${clean}"`);
 }
 
 /**

@@ -19,7 +19,7 @@ import { matchSources } from './matcher.js';
 import { Formatter } from './formatter.js';
 import { defaultCache } from './cache.js';
 import { runConfigWizard } from './wizard.js';
-import { formatMediaType } from './utils/terminal.js';
+import { formatMediaType, openInBrowser } from './utils/terminal.js';
 import type { SearchResultItem } from './types.js';
 
 const program = new Command();
@@ -35,6 +35,7 @@ program
 program
   .argument('[title...]', 'Title of the movie or TV show to search for')
   .option('-a, --all', 'Display all platforms including rent, buy, and non-subscribed SVODs', false)
+  .option('-o, --open', 'Automatically open the top stream in your default browser', false)
   .option('-r, --region <region>', 'Override target region code (e.g. US, GB, CA)')
   .option('--json', 'Output raw JSON result to stdout for scripting', false)
   .option('--mock', 'Force offline mock mode for testing without using API quota', false)
@@ -185,6 +186,28 @@ program
             region,
           })
         );
+
+        if (options.open) {
+          const topStream =
+            matched.paidSubscriptions[0] ||
+            matched.includedFree[0] ||
+            matched.freeTiers[0] ||
+            matched.publicFree[0] ||
+            matched.otherSubscriptions[0] ||
+            matched.rent[0] ||
+            matched.buy[0];
+
+          if (topStream?.webUrl) {
+            openInBrowser(topStream.webUrl);
+            console.log(
+              chalk.green(
+                `[OK] Opened ${chalk.bold(topStream.providerName)} in your default browser.`
+              )
+            );
+          } else {
+            console.log(chalk.yellow('[Notice] No stream web link available to open.'));
+          }
+        }
       }
     } catch (err: any) {
       if (spinner.isSpinning) {

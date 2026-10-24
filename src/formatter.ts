@@ -125,7 +125,7 @@ export class Formatter {
     if (source.webUrl) {
       const cleanUrl = normalizeUrl(source.webUrl);
       if (cleanUrl) {
-        const clickable = formatHyperlink(cleanUrl, cleanUrl);
+        const clickable = formatHyperlink('Open Link', cleanUrl);
         line += `  -> ${chalk.cyan.underline(clickable)}`;
       }
     }
@@ -160,6 +160,12 @@ export class Formatter {
       for (const src of userStreams) {
         lines.push(this.formatSourceBullet(src));
       }
+      lines.push('');
+      lines.push(
+        chalk.dim(
+          '  Tip: Hold Command (⌘) and click any link to open in your browser, or use -o to launch directly.'
+        )
+      );
       lines.push('');
     } else {
       lines.push(
