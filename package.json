@@ -8,9 +8,21 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saadpocalypse/streamhunt.git"
+  },
+  "bugs": {
+    "url": "https://github.com/saadpocalypse/streamhunt/issues"
+  },
+  "homepage": "https://github.com/saadpocalypse/streamhunt#readme",
   "scripts": {
     "build": "tsc",
     "postbuild": "chmod +x dist/cli.js || true",
+    "prepublishOnly": "npm test && npm run build",
     "watch": "tsc --watch",
     "start": "node ./dist/cli.js",
     "dev": "tsx src/cli.ts",
