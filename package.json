@@ -4,7 +4,7 @@
   "description": "Production-grade streaming availability CLI tool powered by Watchmode API",
   "type": "module",
   "bin": {
-    "streamhunt": "./dist/cli.js"
+    "streamhunt": "dist/cli.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
