@@ -8,8 +8,6 @@ Instant streaming availability from your terminal, powered by the Watchmode API.
 
 Cross-reference any movie or TV show against your paid subscriptions, free-tier accounts (e.g., Sling Freestream, Plex), and open streaming platforms (e.g., Tubi, Pluto TV).
 
----
-
 ## Quick Start
 
 ### 1. Install
@@ -34,8 +32,6 @@ streamhunt "Severance"
 
 On your first run, `streamhunt` will prompt for your Watchmode API key and save it securely to `~/.streamhunt/config.json`. A free API key can be obtained at [api.watchmode.com](https://api.watchmode.com/).
 
----
-
 ## Features
 
 - **Smart Cross-Referencing:**
@@ -48,8 +44,6 @@ On your first run, `streamhunt` will prompt for your Watchmode API key and save 
 - **Title Matching:** Interactive selection menu when a title has multiple matches (e.g., movies vs. TV series).
 - **24-Hour Cache:** Search responses are cached locally to conserve your monthly Watchmode API quota.
 - **Minimalist Design:** Clean, distraction-free output without boxes or clutter.
-
----
 
 ## Search Examples
 
@@ -91,8 +85,6 @@ For scripts, Alfred, or Raycast workflows:
 ```bash
 streamhunt "Severance" --json
 ```
-
----
 
 ## Configuration & Subscriptions
 
@@ -138,8 +130,6 @@ streamhunt config --list-providers
 streamhunt config --list-providers --region GB
 ```
 
----
-
 ## Cache Management
 
 Responses are cached in `~/.cache/streamhunt/` for 24 hours.
@@ -151,8 +141,6 @@ streamhunt cache status
 # Purge cache
 streamhunt cache clear
 ```
-
----
 
 ## Contributing
 
@@ -188,8 +176,6 @@ Contributions, issues, and feature requests are welcome!
 8. **Open a Pull Request** on GitHub.
 
 Feel free to check out the [issues page](https://github.com/saadpocalypse/streamhunt/issues) if you'd like to report a bug or suggest an enhancement.
-
----
 
 ## License
 
