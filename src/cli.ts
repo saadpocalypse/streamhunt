@@ -160,8 +160,8 @@ program
 
       if (searchResults.length === 0) {
         if (!options.json) {
-          spinner.fail(`No movies or TV shows found matching "${chalk.bold(query)}".`);
-          console.log(chalk.dim('\nTip: Check spelling or try a broader search term.'));
+          spinner.stop();
+          console.log(chalk.dim(`No movies or TV shows found for "${query}".`));
         } else {
           console.log(JSON.stringify({ error: 'NOT_FOUND', query }, null, 2));
         }
@@ -174,7 +174,7 @@ program
       if (searchResults.length === 1) {
         selectedTitle = searchResults[0];
         if (!options.json) {
-          spinner.succeed(`Found: ${chalk.bold.cyan(selectedTitle.name)} (${selectedTitle.year || 'N/A'})`);
+          spinner.stop();
         }
       } else {
         if (!options.json) {
@@ -202,6 +202,11 @@ program
               pageSize: Math.max(choices.length, 15),
               loop: true,
             });
+
+            // Clear the "✔ Multiple matches found for..." line left by select prompt
+            if (process.stdout.isTTY) {
+              process.stdout.write('\x1b[1A\x1b[2K\r');
+            }
           } catch (err: any) {
             if (err?.name === 'ExitPromptError' || err?.message?.includes('force closed')) {
               process.exitCode = 0;
@@ -282,23 +287,19 @@ program
 
         if (totalStreams === 0) {
           console.log(
-            `  ${chalk.yellow.bold('[Notice]')} ${chalk.white(
-              'Not currently streaming on your active subscriptions or free tiers.'
-            )}`
+            `  ${chalk.dim('Not currently streaming on your active subscriptions or free tiers.')}`
           );
           console.log(
-            `  ${chalk.dim('Tip: Use')} ${chalk.cyan('streamhunt "<title>" --all')} ${chalk.dim(
-              'to view digital purchase/rental options and other streaming providers.'
-            )}\n`
+            `  ${chalk.dim('Tip: Use')} ${chalk.cyan(
+              `streamhunt "${selectedTitle.name}" --all`
+            )} ${chalk.dim('to view digital purchase/rental options.')}\n`
           );
         } else {
           const streamChoices: Array<{ name: string; value: string } | Separator> = [];
 
           if (userStreams.length === 0 && otherStreams.length > 0) {
             console.log(
-              `  ${chalk.yellow.bold('[Notice]')} ${chalk.white(
-                'Not currently streaming on your active subscriptions or free tiers.'
-              )}\n`
+              `  ${chalk.dim('Not currently streaming on your active subscriptions or free tiers.')}\n`
             );
           }
 
@@ -346,16 +347,21 @@ program
               loop: true,
             });
 
+            // Clear the "✔ Select a streaming service..." line left by select prompt
+            if (process.stdout.isTTY) {
+              process.stdout.write('\x1b[1A\x1b[2K\r');
+            }
+
             if (selectedUrl && selectedUrl !== '__DONE__') {
               await open(selectedUrl);
               const allStreams = [...userStreams, ...otherStreams];
               const chosen = allStreams.find((s) => s.webUrl === selectedUrl);
+              const yearStr = selectedTitle.year ? ` (${selectedTitle.year})` : '';
+              const media = formatMediaType(selectedTitle.type);
               console.log(
-                chalk.green(
-                  `[OK] Opened ${chalk.bold(
-                    chosen?.providerName || 'stream'
-                  )} in your default browser.`
-                )
+                `Opened ${chalk.bold.white(selectedTitle.name)}${chalk.dim(yearStr)} [${chalk.cyan(
+                  media.label
+                )}] in ${chalk.bold.green(chosen?.providerName || 'stream')} in your default browser.`
               );
             }
           } catch (err: any) {
