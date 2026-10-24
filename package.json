@@ -1,6 +1,6 @@
 {
   "name": "streamhunt",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Production-grade streaming availability CLI tool powered by Watchmode API",
   "type": "module",
   "bin": {
