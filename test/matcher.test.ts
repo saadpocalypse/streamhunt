@@ -21,7 +21,8 @@ describe('Matcher and Categorization Engine', () => {
     year: 2024,
   };
 
-  it('correctly matches provider names with aliases and casing', () => {
+  it('correctly matches provider names dynamically without hardcoded dictionaries', () => {
+    // Basic casing and brand token matching
     assert.equal(isProviderInList('Max', ['Max']), true);
     assert.equal(isProviderInList('HBO Max', ['Max']), true);
     assert.equal(isProviderInList('max', ['Max']), true);
@@ -29,6 +30,29 @@ describe('Matcher and Categorization Engine', () => {
     assert.equal(isProviderInList('Sling Freestream', ['Sling TV']), true);
     assert.equal(isProviderInList('Philo', ['philo']), true);
     assert.equal(isProviderInList('Netflix', ['Max', 'Philo']), false);
+
+    // Symbols and affixes
+    assert.equal(isProviderInList('Disney+', ['Disney +']), true);
+    assert.equal(isProviderInList('Disney Plus', ['Disney+']), true);
+    assert.equal(isProviderInList('AppleTV+', ['Apple TV Plus']), true);
+    assert.equal(isProviderInList('Paramount+ with Showtime', ['Paramount+']), true);
+    assert.equal(isProviderInList('Prime Video', ['Amazon Prime']), true);
+    assert.equal(isProviderInList('Tubi TV', ['Tubi']), true);
+    assert.equal(isProviderInList('The Roku Channel', ['Roku']), true);
+
+    // Hosted channel parsing: base matches, but host does not grant unrelated add-ons
+    assert.equal(isProviderInList('MAX (Via Amazon Prime)', ['Max']), true);
+    assert.equal(isProviderInList('Max Roku Channel', ['Max']), true);
+    assert.equal(isProviderInList('AMC+ Roku Channel', ['The Roku Channel']), false);
+    assert.equal(isProviderInList('Cinemax', ['Max']), false);
+
+    // Global / International services
+    assert.equal(isProviderInList('Binge', ['Binge']), true);
+    assert.equal(isProviderInList('BBC iPlayer', ['BBC iPlayer']), true);
+    assert.equal(isProviderInList('Crave', ['Crave']), true);
+
+    // Numeric source ID matching
+    assert.equal(isProviderInList('Any Name', ['387'], 387), true);
   });
 
   it('categorizes paid subscriptions as [Paid Sub]', () => {
@@ -49,7 +73,7 @@ describe('Matcher and Categorization Engine', () => {
     assert.equal(result.paidSubscriptions[0].badgeLabel, '[Paid Sub]');
   });
 
-  it('categorizes account free tiers as [Free Tier]', () => {
+  it('categorizes account free tiers as [Free Tier] with dynamic description', () => {
     const sources: SourceItem[] = [
       {
         source_id: 2,
@@ -58,14 +82,24 @@ describe('Matcher and Categorization Engine', () => {
         format: 'HD',
         web_url: 'https://sling.com',
       },
+      {
+        source_id: 99,
+        name: 'Plex (Free Movies & TV)',
+        type: 'free',
+        format: 'HD',
+        web_url: 'https://plex.tv',
+      },
     ];
 
     const result = matchSources(sampleTitle, sources, sampleConfig);
-    assert.equal(result.freeTiers.length, 1);
+    assert.equal(result.freeTiers.length, 2);
     assert.equal(result.freeTiers[0].providerName, 'Sling TV');
     assert.equal(result.freeTiers[0].category, 'free_tier');
     assert.equal(result.freeTiers[0].badgeLabel, '[Free Tier]');
-    assert.equal(result.freeTiers[0].subDescription, '(Freestream)');
+    assert.equal(result.freeTiers[0].subDescription, '(Free)');
+
+    // Parenthetical qualifier extracted dynamically
+    assert.equal(result.freeTiers[1].subDescription, '(Free Movies & TV)');
   });
 
   it('categorizes free stream from paid subscription as [Included Free]', () => {

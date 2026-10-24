@@ -11,76 +11,186 @@ import type {
 /**
  * Common provider name aliases to ensure robust matching even with slight naming variations
  */
-const PROVIDER_ALIASES: Record<string, string[]> = {
-  max: ['max', 'hbo max', 'hbo'],
-  'hbo max': ['max', 'hbo max', 'hbo'],
-  'sling tv': ['sling tv', 'sling', 'sling freestream'],
-  sling: ['sling tv', 'sling', 'sling freestream'],
-  philo: ['philo', 'philo free', 'philo free channels'],
-  'prime video': ['prime video', 'amazon prime video', 'amazon prime', 'amazon'],
-  'amazon prime video': ['prime video', 'amazon prime video', 'amazon prime', 'amazon'],
-  'apple tv+': ['apple tv+', 'apple tv plus', 'apple tv'],
-  'disney+': ['disney+', 'disney plus', 'disney'],
-  'paramount+': ['paramount+', 'paramount plus', 'paramount'],
-  peacock: ['peacock', 'peacock premium'],
-  plex: ['plex', 'plex free movies & tv'],
-  tubi: ['tubi', 'tubi tv'],
-  'pluto tv': ['pluto tv', 'pluto'],
-  'the roku channel': ['the roku channel', 'roku channel', 'roku'],
-  'roku channel': ['the roku channel', 'roku channel', 'roku'],
-  cineverse: ['cineverse', 'cineverse tv'],
-  'cineverse tv': ['cineverse', 'cineverse tv'],
-  youtube: ['youtube', 'youtube free', 'youtube movies'],
-  'google tv freeplay': ['google tv freeplay', 'google play', 'google tv', 'google'],
-  hoopla: ['hoopla'],
-};
+/**
+ * Universal entertainment service noise words (carrier types, distribution terms,
+ * affixes) that do not distinguish the core brand identity.
+ */
+const NOISE_WORDS = new Set([
+  'the',
+  'tv',
+  'channel',
+  'channels',
+  'app',
+  'network',
+  'networks',
+  'video',
+  'videos',
+  'media',
+  'stream',
+  'streaming',
+  'subscription',
+  'subscriptions',
+  'on',
+  'demand',
+  'live',
+  'digital',
+  'plus',
+  'freeplay',
+]);
 
 /**
- * Normalizes a provider name for comparison
+ * Cleans and canonicalizes strings by expanding symbols and separating compound identifiers
  */
-function normalizeName(name: string): string {
-  return name
+export function cleanString(str: string): string {
+  return str
     .toLowerCase()
-    .replace(/[^a-z0-9]/g, '')
+    .replace(/&/g, ' and ')
+    .replace(/\+/g, ' plus ')
+    .replace(/tv/gi, ' tv ') // splits concatenated names like AppleTV -> Apple TV
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * Tokenizes a string into canonical words
+ */
+export function normalizeTokens(str: string): string[] {
+  return cleanString(str).split(' ').filter(Boolean);
+}
+
+/**
+ * Extracts core brand tokens by filtering out generic media/carrier noise words
+ */
+export function getBrandTokens(str: string): string[] {
+  const tokens = normalizeTokens(str);
+  const filtered = tokens.filter((t) => !NOISE_WORDS.has(t));
+  return filtered.length > 0 ? filtered : tokens;
+}
+
+export interface ParsedWatchmodeSource {
+  baseName: string;
+  hostName: string | null;
+}
+
+/**
+ * Decomposes Watchmode source naming conventions into base service and carrier/host platform:
+ * - "Base (Via Host)" -> e.g. "HBO Max (Via Amazon Prime)" => base: "HBO Max", host: "Amazon Prime"
+ * - "Base on Host" -> e.g. "Hulu on Disney+" => base: "Hulu", host: "Disney+"
+ * - "Base Host Channel" -> e.g. "Max Roku Channel" => base: "Max", host: "Roku"
+ */
+export function parseWatchmodeSourceName(rawName: string): ParsedWatchmodeSource {
+  const name = rawName.trim();
+
+  // Pattern 1: Base (Via Host) or Base (on Host)
+  const viaMatch = name.match(/^(.*?)\s*\((?:via|on)\s+(.*?)\)$/i);
+  if (viaMatch) {
+    return {
+      baseName: viaMatch[1].trim(),
+      hostName: viaMatch[2].trim(),
+    };
+  }
+
+  // Pattern 2: Base on Host
+  const onMatch = name.match(/^(.*?)\s+on\s+(.*)$/i);
+  if (onMatch) {
+    return {
+      baseName: onMatch[1].trim(),
+      hostName: onMatch[2].trim(),
+    };
+  }
+
+  // Pattern 3: Add-on Channel: Base Host Channel (e.g. "Max Roku Channel", "AMC+ Amazon Channel")
+  // Exclude when the platform itself is the brand (e.g. "The Roku Channel", "Apple TV Channel")
+  if (
+    !name.match(/^(the\s+)?roku\s+channel$/i) &&
+    !name.match(/^(the\s+)?apple\s*tv(\s*channel)?$/i)
+  ) {
+    const chanMatch = name.match(/^(.*?)\s+(amazon|roku|apple\s*tv)\s+channel$/i);
+    if (chanMatch) {
+      return {
+        baseName: chanMatch[1].trim(),
+        hostName: chanMatch[2].trim(),
+      };
+    }
+  }
+
+  return {
+    baseName: name,
+    hostName: null,
+  };
+}
+
+/**
+ * Dynamically compares a Watchmode source name against a user-configured provider item
+ * using token brand analysis without any hardcoded dictionary.
+ */
+export function matchesProvider(sourceName: string, userItem: string, sourceId?: number): boolean {
+  const trimmedUser = userItem.trim();
+  if (!trimmedUser) return false;
+
+  // Direct source_id match if user configured numeric IDs (e.g. "387" or "26")
+  if (sourceId !== undefined && !Number.isNaN(Number(trimmedUser))) {
+    if (sourceId === parseInt(trimmedUser, 10)) {
+      return true;
+    }
+  }
+
+  const sParsed = parseWatchmodeSourceName(sourceName);
+  const uParsed = parseWatchmodeSourceName(trimmedUser);
+
+  // 1. Exact cleaned string match
+  const sClean = cleanString(sParsed.baseName);
+  const uClean = cleanString(uParsed.baseName);
+  if (sClean === uClean) return true;
+
+  // 2. Compact alphanumeric match
+  const sCompact = sClean.replace(/\s+/g, '');
+  const uCompact = uClean.replace(/\s+/g, '');
+  if (sCompact === uCompact) return true;
+
+  // 3. Core brand tokens exact match
+  const sBrand = getBrandTokens(sParsed.baseName);
+  const uBrand = getBrandTokens(uParsed.baseName);
+  if (sBrand.join(' ') === uBrand.join(' ')) return true;
+
+  // 4. Token set containment (e.g. "Max" in "HBO Max", "Prime" in "Prime Video", "Disney" in "Disney+")
+  const sSet = new Set(sBrand);
+  const uSet = new Set(uBrand);
+
+  const uInS = uBrand.every((t) => sSet.has(t));
+  const sInU = sBrand.every((t) => uSet.has(t));
+
+  // Safeguard: Ensure tokens are substantial (length >= 3) to prevent accidental collisions
+  const minLen = Math.min(...uBrand.map((t) => t.length), ...sBrand.map((t) => t.length));
+  if (minLen >= 3 && (uInS || sInU)) {
+    return true;
+  }
+
+  // 5. If user specifically configured a hosted channel, verify both base and host
+  if (sParsed.hostName && uParsed.hostName) {
+    const sHostBrand = getBrandTokens(sParsed.hostName);
+    const uHostBrand = getBrandTokens(uParsed.hostName);
+    if (sHostBrand.some((t) => uHostBrand.includes(t)) && (uInS || sInU)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**
  * Checks if a given provider name matches any item in the target list
  */
-export function isProviderInList(providerName: string, list: string[]): boolean {
+export function isProviderInList(
+  providerName: string,
+  list: string[],
+  sourceId?: number
+): boolean {
   if (!list || list.length === 0) return false;
 
-  const normalizedProvider = normalizeName(providerName);
-  const lowerProvider = providerName.toLowerCase().trim();
-
   for (const item of list) {
-    const normalizedItem = normalizeName(item);
-    const lowerItem = item.toLowerCase().trim();
-
-    // Exact match or normalized match
-    if (lowerProvider === lowerItem || normalizedProvider === normalizedItem) {
-      return true;
-    }
-
-    // Check alias dictionary
-    const aliases = PROVIDER_ALIASES[lowerItem] || PROVIDER_ALIASES[normalizedItem] || [];
-    if (
-      aliases.some(
-        (alias) =>
-          normalizeName(alias) === normalizedProvider ||
-          lowerProvider.includes(alias) ||
-          alias.includes(lowerProvider)
-      )
-    ) {
-      return true;
-    }
-
-    // Check if one contains the other (e.g. "Sling TV" contains "Sling")
-    if (
-      (normalizedProvider.length > 3 && normalizedItem.includes(normalizedProvider)) ||
-      (normalizedItem.length > 3 && normalizedProvider.includes(normalizedItem))
-    ) {
+    if (matchesProvider(providerName, item, sourceId)) {
       return true;
     }
   }
@@ -101,13 +211,22 @@ function getFormatScore(format?: string | null): number {
 }
 
 /**
+ * Normalizes a provider name for deduplication grouping
+ */
+function normalizeForGrouping(name: string): string {
+  const parsed = parseWatchmodeSourceName(name);
+  const brand = getBrandTokens(parsed.baseName).join('');
+  return brand || cleanString(name).replace(/\s+/g, '');
+}
+
+/**
  * Deduplicate sources by provider name and type, picking the highest format and lowest price
  */
 function deduplicateSources(sources: SourceItem[]): SourceItem[] {
   const map = new Map<string, SourceItem>();
 
   for (const src of sources) {
-    const key = `${normalizeName(src.name)}_${src.type}`;
+    const key = `${normalizeForGrouping(src.name)}_${src.type}`;
     const existing = map.get(key);
 
     if (!existing) {
@@ -151,6 +270,24 @@ function deduplicateSources(sources: SourceItem[]): SourceItem[] {
   return Array.from(map.values());
 }
 
+/**
+ * Derives a dynamic description for free/freemium sources from Watchmode metadata
+ */
+function getFreeSubDescription(sourceName: string): string {
+  const parsed = parseWatchmodeSourceName(sourceName);
+  if (parsed.hostName) {
+    return `(Via ${parsed.hostName})`;
+  }
+
+  // If the source name contains an explicit parenthetical qualifier, preserve it
+  const parenMatch = sourceName.match(/\(([^)]+)\)/);
+  if (parenMatch) {
+    return `(${parenMatch[1].trim()})`;
+  }
+
+  return '(Free)';
+}
+
 export interface MatchOptions {
   includeAll?: boolean;
 }
@@ -180,8 +317,8 @@ export function matchSources(
   const includeRentBuy = options.includeAll || config.include_rent_buy;
 
   for (const src of deduped) {
-    const isPaidUserSub = isProviderInList(src.name, paidList);
-    const isFreeTierUserAcc = isProviderInList(src.name, freeTierList);
+    const isPaidUserSub = isProviderInList(src.name, paidList, src.source_id);
+    const isFreeTierUserAcc = isProviderInList(src.name, freeTierList, src.source_id);
 
     if (src.type === 'sub') {
       if (isPaidUserSub) {
@@ -213,16 +350,6 @@ export function matchSources(
       }
     } else if (src.type === 'free') {
       if (isFreeTierUserAcc) {
-        let subDescription = '(Free)';
-        const lowerName = src.name.toLowerCase();
-        if (lowerName.includes('sling')) subDescription = '(Freestream)';
-        else if (lowerName.includes('philo')) subDescription = '(Free Channels)';
-        else if (lowerName.includes('tubi') || lowerName.includes('pluto')) subDescription = '(Ad-supported)';
-        else if (lowerName.includes('youtube')) subDescription = '(Free with Ads)';
-        else if (lowerName.includes('plex')) subDescription = '(Free Movies & TV)';
-        else if (lowerName.includes('hoopla')) subDescription = '(Library Card)';
-        else if (lowerName.includes('roku')) subDescription = '(Free on Roku)';
-
         freeTiers.push({
           sourceId: src.source_id,
           providerName: src.name,
@@ -233,7 +360,7 @@ export function matchSources(
           webUrl: src.web_url,
           badgeLabel: '[Free Tier]',
           tagColor: 'yellow',
-          subDescription,
+          subDescription: getFreeSubDescription(src.name),
         });
       } else if (isPaidUserSub) {
         // Provider is in user's paid subscriptions, but content is streamed free
