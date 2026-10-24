@@ -236,7 +236,7 @@ streamhunt/
 │   ├── cache.ts          # Local file-based 24-hr TTL cache manager
 │   ├── api.ts            # Typed Watchmode API client with rate limit detection
 │   ├── matcher.ts        # Categorization engine (paid, free tier, public free, rent/buy)
-│   ├── formatter.ts      # Terminal layout engine: boxen cards, badges, hyperlinks
+│   ├── formatter.ts      # Terminal layout engine: clean cards, badges, hyperlinks
 │   ├── wizard.ts         # Interactive configuration wizard (@inquirer/prompts)
 │   ├── types.ts          # Zod validation schemas and TypeScript interfaces
 │   └── utils/

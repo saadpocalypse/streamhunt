@@ -1,5 +1,4 @@
 import chalk from 'chalk';
-import boxen from 'boxen';
 import type {
   MatchedAvailability,
   CategorizedSource,
@@ -162,20 +161,9 @@ export class Formatter {
     const lines: string[] = [];
 
     lines.push(
-      boxen(
-        `${chalk.bold.white('Supported Streaming Providers for Region:')} ${chalk.cyan.bold(
-          region
-        )}\n` +
-          `${chalk.dim('Total providers found:')} ${chalk.green(providers.length)}\n` +
-          `${chalk.dim('Configure exact names in ~/.streamhunt/config.json')}`,
-        {
-          padding: 1,
-          borderStyle: 'round',
-          borderColor: 'green',
-        }
-      )
+      `${chalk.bold.white('Supported Streaming Providers')} ${chalk.cyan(`(${region})`)} - ${chalk.dim(`${providers.length} found`)}`
     );
-    lines.push('');
+    lines.push(chalk.dim('Configure exact names in ~/.streamhunt/config.json\n'));
 
     for (const p of providers) {
       const typeLabel = p.type ? chalk.dim(`[${p.type}]`) : '';
@@ -187,18 +175,16 @@ export class Formatter {
   }
 
   /**
-   * Formats user-friendly error banners
+   * Formats user-friendly error banners without boxes
    */
-  static renderError(title: string, message: string, remediation?: string): string {
-    let body = `${chalk.red.bold('[Error] ' + title)}\n\n${chalk.white(message)}`;
+  static renderError(_title: string, message?: string, remediation?: string): string {
+    const lines: string[] = [];
+    const text = message || _title;
+    lines.push(chalk.red(text));
     if (remediation) {
-      body += `\n\n${chalk.cyan.bold('How to fix:')}\n${chalk.dim(remediation)}`;
+      lines.push(chalk.dim(remediation));
     }
-    return boxen(body, {
-      padding: 1,
-      borderStyle: 'round',
-      borderColor: 'red',
-    });
+    return lines.join('\n');
   }
 
   /**
@@ -223,30 +209,32 @@ export class Formatter {
         ? config.subscriptions.free_tier_only.map((s) => chalk.yellow(`  - ${s}`)).join('\n')
         : chalk.dim('  None');
 
-    const body =
-      `${chalk.bold.cyan('Active Streamhunt Configuration')}\n\n` +
-      `${chalk.bold('Watchmode API Key:')} ${chalk.white(masked)}\n` +
-      `${chalk.bold('Region:')} ${chalk.cyan(config.region || 'US')}\n` +
+    const lines = [
+      chalk.bold.white('Active Streamhunt Configuration'),
+      '',
+      `${chalk.bold('Watchmode API Key:')} ${chalk.dim(masked)}`,
+      `${chalk.bold('Region:')} ${chalk.cyan(config.region || 'US')}`,
       `${chalk.bold('Public Free Platforms:')} ${
         config.always_include_public_free
           ? chalk.green('Always Included')
           : chalk.dim('Excluded')
-      }\n` +
+      }`,
       `${chalk.bold('Include Rent/Buy by Default:')} ${
         config.include_rent_buy ? chalk.green('Yes') : chalk.dim('No')
-      }\n\n` +
+      }`,
+      '',
       `${chalk.bold('Paid Subscriptions:')} (${chalk.green(
         config.subscriptions.paid.length
-      )})\n${paidList}\n\n` +
+      )})`,
+      paidList,
+      '',
       `${chalk.bold('Free Tier Accounts:')} (${chalk.yellow(
         config.subscriptions.free_tier_only.length
-      )})\n${freeList}`;
+      )})`,
+      freeList,
+    ];
 
-    return boxen(body, {
-      padding: 1,
-      borderStyle: 'round',
-      borderColor: 'cyan',
-    });
+    return lines.join('\n');
   }
 }
 

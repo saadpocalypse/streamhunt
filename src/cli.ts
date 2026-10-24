@@ -2,7 +2,6 @@
 import { Command } from 'commander';
 import ora from 'ora';
 import chalk from 'chalk';
-import boxen from 'boxen';
 import { select, input, Separator } from '@inquirer/prompts';
 import { WatchmodeClient, StreamHuntError } from './api.js';
 import {
@@ -108,18 +107,8 @@ program
     // Ensure API key is configured; prompt user interactively on first run if missing
     let apiKey = getApiKey(config);
     if (!apiKey && !options.mock && !options.json && process.stdin.isTTY) {
-      console.log(
-        boxen(
-          `${chalk.bold.yellow('Watchmode API Key Required')}\n\n` +
-            `${chalk.white('streamhunt queries streaming data through the Watchmode API.')}\n` +
-            `${chalk.dim('Sign up for a free key at:')} ${chalk.cyan('https://api.watchmode.com/')}`,
-          {
-            padding: 1,
-            borderStyle: 'round',
-            borderColor: 'yellow',
-          }
-        )
-      );
+      console.log(chalk.yellow('Watchmode API key required.'));
+      console.log(chalk.dim('Get a free key at https://api.watchmode.com/\n'));
 
       try {
         const entered = await input({
@@ -130,11 +119,9 @@ program
         apiKey = entered.trim();
         saveApiKey(apiKey);
         config.api_key = apiKey;
-        console.log(
-          chalk.green(`[OK] API key saved to ~/.streamhunt/config.json\n`)
-        );
+        console.log(chalk.dim('API key saved.\n'));
       } catch {
-        console.log(chalk.dim('\nSearch cancelled.'));
+        console.log(chalk.dim('Cancelled.'));
         process.exitCode = 1;
         return;
       }
@@ -441,7 +428,7 @@ const configCmd = program
     if (options.setKey) {
       const keyToSet = options.setKey.trim();
       if (keyToSet.length < 5) {
-        console.log(chalk.red('[Error] Invalid API key provided.'));
+        console.log(chalk.red('Invalid API key provided.'));
         process.exitCode = 1;
         return;
       }
@@ -551,7 +538,9 @@ const configCmd = program
         spinner.succeed(`Found ${providers.length} supported providers.`);
         console.log(Formatter.renderProvidersList(providers, region));
       } catch (err: any) {
-        spinner.fail('Failed to fetch providers list.');
+        if (spinner.isSpinning) {
+          spinner.stop();
+        }
         if (err instanceof StreamHuntError) {
           console.log(Formatter.renderError(err.code, err.message, err.remediation));
         } else {

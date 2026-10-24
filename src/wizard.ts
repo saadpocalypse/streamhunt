@@ -1,6 +1,5 @@
 import { input, select, checkbox, confirm } from '@inquirer/prompts';
 import chalk from 'chalk';
-import boxen from 'boxen';
 import {
   loadUserConfig,
   saveUserConfig,
@@ -35,16 +34,10 @@ const POPULAR_FREE_TIERS = [
 ];
 
 export async function runConfigWizard(): Promise<void> {
+  console.log(chalk.bold.white('Streamhunt Configuration Wizard'));
   console.log(
-    boxen(
-      `${chalk.bold.cyan('Streamhunt Configuration Wizard')}\n` +
-        `${chalk.dim('Configure your Watchmode API key, streaming subscriptions, and region.')}\n` +
-        `${chalk.dim('Saved to:')} ${chalk.white(getConfigPath())}`,
-      {
-        padding: 1,
-        borderStyle: 'round',
-        borderColor: 'cyan',
-      }
+    chalk.dim(
+      `Configure your API key, subscriptions, and region. (${getConfigPath()})\n`
     )
   );
 
@@ -146,28 +139,27 @@ export async function runConfigWizard(): Promise<void> {
 
   saveUserConfig(updatedConfig);
 
+  console.log(`\n${chalk.white.bold('Configuration Saved')}\n`);
+  console.log(`${chalk.bold('Watchmode API Key:')} ${chalk.dim(maskApiKey(updatedConfig.api_key))}`);
+  console.log(`${chalk.bold('Region:')} ${chalk.cyan(updatedConfig.region)}`);
   console.log(
-    boxen(
-      `${chalk.bold.green('Configuration Saved Successfully!')}\n\n` +
-        `${chalk.bold('Watchmode API Key:')} ${chalk.cyan(maskApiKey(updatedConfig.api_key))}\n` +
-        `${chalk.bold('Region:')} ${chalk.cyan(updatedConfig.region)}\n` +
-        `${chalk.bold('Paid Subscriptions:')} ${chalk.green(
-          updatedConfig.subscriptions.paid.join(', ') || 'None'
-        )}\n` +
-        `${chalk.bold('Free Tier Accounts:')} ${chalk.yellow(
-          updatedConfig.subscriptions.free_tier_only.join(', ') || 'None'
-        )}\n` +
-        `${chalk.bold('Public Free Platforms:')} ${
-          updatedConfig.always_include_public_free ? chalk.green('Enabled') : chalk.gray('Disabled')
-        }\n` +
-        `${chalk.bold('Default Rent/Buy:')} ${
-          updatedConfig.include_rent_buy ? chalk.green('Enabled') : chalk.gray('Disabled')
-        }`,
-      {
-        padding: 1,
-        borderStyle: 'round',
-        borderColor: 'green',
-      }
-    )
+    `${chalk.bold('Paid Subscriptions:')} ${chalk.green(
+      updatedConfig.subscriptions.paid.join(', ') || 'None'
+    )}`
+  );
+  console.log(
+    `${chalk.bold('Free Tier Accounts:')} ${chalk.yellow(
+      updatedConfig.subscriptions.free_tier_only.join(', ') || 'None'
+    )}`
+  );
+  console.log(
+    `${chalk.bold('Public Free Platforms:')} ${
+      updatedConfig.always_include_public_free ? chalk.green('Enabled') : chalk.gray('Disabled')
+    }`
+  );
+  console.log(
+    `${chalk.bold('Default Rent/Buy:')} ${
+      updatedConfig.include_rent_buy ? chalk.green('Enabled') : chalk.gray('Disabled')
+    }\n`
   );
 }

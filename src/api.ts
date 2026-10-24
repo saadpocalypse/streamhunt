@@ -65,7 +65,7 @@ export class WatchmodeClient {
       throw new StreamHuntError(
         'Watchmode API key is missing.',
         'MISSING_API_KEY',
-        'Add your key to .env (WATCHMODE_API_KEY=your_key) or visit https://api.watchmode.com/ to sign up for a free key.'
+        'Set your key with: streamhunt config --set-key <key> (or set WATCHMODE_API_KEY)'
       );
     }
     return this.apiKey;
@@ -97,26 +97,26 @@ export class WatchmodeClient {
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
           throw new StreamHuntError(
-            'Unauthorized: Invalid Watchmode API key provided.',
+            'Invalid Watchmode API key.',
             'INVALID_API_KEY',
-            'Verify your WATCHMODE_API_KEY in .env or at https://api.watchmode.com/'
+            'Update your key with: streamhunt config --set-key <key> (or verify WATCHMODE_API_KEY)'
           );
         }
         if (response.status === 429) {
           throw new StreamHuntError(
-            'Watchmode API rate limit reached or quota exhausted.',
+            'API limit reached.',
             'RATE_LIMIT_EXCEEDED',
-            'Watchmode free tier allows limited requests per month. Check your quota at https://api.watchmode.com/'
+            'Watchmode monthly quota exhausted. Check your account at https://api.watchmode.com/'
           );
         }
         if (response.status === 404) {
           throw new StreamHuntError(
-            'The requested resource was not found on Watchmode.',
+            'Resource not found on Watchmode.',
             'NOT_FOUND'
           );
         }
         throw new StreamHuntError(
-          `Watchmode API returned error status ${response.status}: ${response.statusText}`,
+          `Watchmode API returned status ${response.status}: ${response.statusText}`,
           'HTTP_ERROR'
         );
       }
@@ -129,13 +129,13 @@ export class WatchmodeClient {
       }
       if (err.name === 'AbortError') {
         throw new StreamHuntError(
-          `Request to Watchmode timed out after ${this.timeoutMs}ms.`,
+          'Request to Watchmode timed out.',
           'TIMEOUT',
           'Check your internet connection or try again later.'
         );
       }
       throw new StreamHuntError(
-        `Network error while contacting Watchmode: ${err.message}`,
+        `Network error: ${err.message}`,
         'NETWORK_ERROR',
         'Verify your network connection.'
       );
