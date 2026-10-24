@@ -6,7 +6,7 @@ import os from 'node:os';
 import { CacheManager } from '../src/cache.js';
 
 describe('Local File Cache Manager', () => {
-  const testDir = path.join(os.tmpdir(), `streamfind-test-cache-${Date.now()}`);
+  const testDir = path.join(os.tmpdir(), `streamhunt-test-cache-${Date.now()}`);
   let cache: CacheManager;
 
   before(() => {

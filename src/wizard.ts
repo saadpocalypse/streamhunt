@@ -7,7 +7,7 @@ import {
   getConfigPath,
   DEFAULT_CONFIG,
 } from './config.js';
-import type { StreamFindConfig } from './types.js';
+import type { StreamHuntConfig } from './types.js';
 
 const POPULAR_PAID_PROVIDERS = [
   'Max',
@@ -35,7 +35,7 @@ const POPULAR_FREE_TIERS = [
 export async function runConfigWizard(): Promise<void> {
   console.log(
     boxen(
-      `${chalk.bold.cyan('⚙️  Streamfind Configuration Wizard')}\n` +
+      `${chalk.bold.cyan('Streamhunt Configuration Wizard')}\n` +
         `${chalk.dim('Configure your streaming subscriptions, free accounts, and region.')}\n` +
         `${chalk.dim('Saved to:')} ${chalk.white(getConfigPath())}`,
       {
@@ -123,7 +123,7 @@ export async function runConfigWizard(): Promise<void> {
     default: current.include_rent_buy,
   });
 
-  const updatedConfig: StreamFindConfig = {
+  const updatedConfig: StreamHuntConfig = {
     region: region.trim().toUpperCase(),
     subscriptions: {
       paid: selectedPaid,
@@ -137,7 +137,7 @@ export async function runConfigWizard(): Promise<void> {
 
   console.log(
     boxen(
-      `${chalk.bold.green('✔ Configuration Saved Successfully!')}\n\n` +
+      `${chalk.bold.green('Configuration Saved Successfully!')}\n\n` +
         `${chalk.bold('Region:')} ${chalk.cyan(updatedConfig.region)}\n` +
         `${chalk.bold('Paid Subscriptions:')} ${chalk.green(
           updatedConfig.subscriptions.paid.join(', ') || 'None'

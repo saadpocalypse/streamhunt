@@ -3,7 +3,7 @@ import { Command } from 'commander';
 import ora from 'ora';
 import chalk from 'chalk';
 import { select } from '@inquirer/prompts';
-import { WatchmodeClient, StreamFindError } from './api.js';
+import { WatchmodeClient, StreamHuntError } from './api.js';
 import { loadUserConfig, resolveRegion } from './config.js';
 import { matchSources } from './matcher.js';
 import { Formatter } from './formatter.js';
@@ -15,12 +15,12 @@ import type { SearchResultItem } from './types.js';
 const program = new Command();
 
 program
-  .name('streamfind')
+  .name('streamhunt')
   .description('Production-grade streaming availability CLI tool powered by Watchmode API')
   .version('1.0.0');
 
 /**
- * Main lookup action: streamfind <title>
+ * Main lookup action: streamhunt <title>
  */
 program
   .argument('[title...]', 'Title of the movie or TV show to search for')
@@ -39,7 +39,10 @@ program
     const config = loadUserConfig();
     const region = resolveRegion(options.region, config);
     const client = new WatchmodeClient({
-      mockMode: options.mock || process.env.STREAMFIND_MOCK === 'true',
+      mockMode:
+        options.mock ||
+        process.env.STREAMHUNT_MOCK === 'true' ||
+        process.env.STREAMFIND_MOCK === 'true',
     });
 
     const spinner = ora();
@@ -79,7 +82,7 @@ program
             const media = formatMediaType(item.type);
             const yearStr = item.year ? `(${item.year})` : '(Year N/A)';
             return {
-              name: `${item.name} ${yearStr} • [${media.label}]`,
+              name: `${item.name} ${yearStr} | [${media.label}]`,
               value: item,
             };
           });
@@ -139,7 +142,7 @@ program
         return;
       }
 
-      if (err instanceof StreamFindError) {
+      if (err instanceof StreamHuntError) {
         console.log(Formatter.renderError(err.code, err.message, err.remediation));
       } else {
         console.log(
@@ -155,7 +158,7 @@ program
   });
 
 /**
- * Config command: streamfind config [--list-providers]
+ * Config command: streamhunt config [--list-providers]
  */
 const configCmd = program
   .command('config')
@@ -171,14 +174,17 @@ const configCmd = program
       const spinner = ora(`Fetching supported streaming providers for ${chalk.bold(region)}...`).start();
       try {
         const client = new WatchmodeClient({
-          mockMode: options.mock || process.env.STREAMFIND_MOCK === 'true',
+          mockMode:
+            options.mock ||
+            process.env.STREAMHUNT_MOCK === 'true' ||
+            process.env.STREAMFIND_MOCK === 'true',
         });
         const providers = await client.getProviders(region);
         spinner.succeed(`Found ${providers.length} supported providers.`);
         console.log(Formatter.renderProvidersList(providers, region));
       } catch (err: any) {
         spinner.fail('Failed to fetch providers list.');
-        if (err instanceof StreamFindError) {
+        if (err instanceof StreamHuntError) {
           console.log(Formatter.renderError(err.code, err.message, err.remediation));
         } else {
           console.log(Formatter.renderError('API_ERROR', err.message));
@@ -198,7 +204,7 @@ const configCmd = program
   });
 
 /**
- * Cache commands: streamfind cache clear / streamfind cache status
+ * Cache commands: streamhunt cache clear / streamhunt cache status
  */
 const cacheCmd = program
   .command('cache')
@@ -212,7 +218,7 @@ cacheCmd
     const kb = (result.sizeBytes / 1024).toFixed(1);
     console.log(
       chalk.green(
-        `✔ Cache cleared successfully. Removed ${result.count} entries (${kb} KB freed).`
+        `[OK] Cache cleared successfully. Removed ${result.count} entries (${kb} KB freed).`
       )
     );
   });
@@ -224,10 +230,10 @@ cacheCmd
     const stats = defaultCache.stats();
     const kb = (stats.sizeBytes / 1024).toFixed(1);
     console.log(chalk.bold.cyan('Cache Statistics:'));
-    console.log(`  • Location: ${chalk.white(stats.location)}`);
-    console.log(`  • Cached entries: ${chalk.green(stats.count)}`);
-    console.log(`  • Total size: ${chalk.yellow(kb + ' KB')}`);
-    console.log(`  • Cache TTL: ${chalk.dim('24 hours')}`);
+    console.log(`  - Location: ${chalk.white(stats.location)}`);
+    console.log(`  - Cached entries: ${chalk.green(stats.count)}`);
+    console.log(`  - Total size: ${chalk.yellow(kb + ' KB')}`);
+    console.log(`  - Cache TTL: ${chalk.dim('24 hours')}`);
   });
 
 program.parse(process.argv);

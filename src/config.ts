@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import dotenv from 'dotenv';
-import { ConfigSchema, type StreamFindConfig } from './types.js';
+import { ConfigSchema, type StreamHuntConfig, type StreamFindConfig } from './types.js';
 
 // Load .env quietly
 dotenv.config({ quiet: true });
@@ -13,8 +13,11 @@ if (fs.existsSync(projectEnvPath)) {
   dotenv.config({ path: projectEnvPath, override: false, quiet: true });
 }
 
-// Check user home config dir: ~/.streamfind/
-const CONFIG_DIR = path.join(os.homedir(), '.streamfind');
+// User home config dirs
+const NEW_CONFIG_DIR = path.join(os.homedir(), '.streamhunt');
+const LEGACY_CONFIG_DIR = path.join(os.homedir(), '.streamfind');
+
+const CONFIG_DIR = NEW_CONFIG_DIR;
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 const HOME_ENV_FILE = path.join(CONFIG_DIR, '.env');
 
@@ -22,7 +25,7 @@ if (fs.existsSync(HOME_ENV_FILE)) {
   dotenv.config({ path: HOME_ENV_FILE, override: false, quiet: true });
 }
 
-export const DEFAULT_CONFIG: StreamFindConfig = {
+export const DEFAULT_CONFIG: StreamHuntConfig = {
   region: 'US',
   subscriptions: {
     paid: ['Max', 'Philo'],
@@ -33,7 +36,7 @@ export const DEFAULT_CONFIG: StreamFindConfig = {
 };
 
 /**
- * Returns the path to the user's config directory (~/.streamfind)
+ * Returns the path to the user's config directory (~/.streamhunt)
  */
 export function getConfigDir(): string {
   return CONFIG_DIR;
@@ -47,13 +50,24 @@ export function getConfigPath(): string {
 }
 
 /**
- * Loads user config from ~/.streamfind/config.json.
- * If file does not exist, automatically creates it with default values.
+ * Loads user config from ~/.streamhunt/config.json.
+ * Automatically migrates from ~/.streamfind if available.
  */
-export function loadUserConfig(): StreamFindConfig {
+export function loadUserConfig(): StreamHuntConfig {
   try {
     if (!fs.existsSync(CONFIG_DIR)) {
       fs.mkdirSync(CONFIG_DIR, { recursive: true });
+    }
+
+    // Auto-migrate from legacy ~/.streamfind/config.json if new config doesn't exist yet
+    const legacyFile = path.join(LEGACY_CONFIG_DIR, 'config.json');
+    if (!fs.existsSync(CONFIG_FILE) && fs.existsSync(legacyFile)) {
+      try {
+        const legacyData = fs.readFileSync(legacyFile, 'utf-8');
+        fs.writeFileSync(CONFIG_FILE, legacyData, 'utf-8');
+      } catch {
+        // Migration fallback
+      }
     }
 
     if (!fs.existsSync(CONFIG_FILE)) {
@@ -82,15 +96,14 @@ export function loadUserConfig(): StreamFindConfig {
 
     return validated.data;
   } catch (error) {
-    // If corrupted or unreadable, fallback to default
     return DEFAULT_CONFIG;
   }
 }
 
 /**
- * Saves user configuration to ~/.streamfind/config.json
+ * Saves user configuration to ~/.streamhunt/config.json
  */
-export function saveUserConfig(config: StreamFindConfig): void {
+export function saveUserConfig(config: StreamHuntConfig): void {
   if (!fs.existsSync(CONFIG_DIR)) {
     fs.mkdirSync(CONFIG_DIR, { recursive: true });
   }
@@ -103,6 +116,7 @@ export function saveUserConfig(config: StreamFindConfig): void {
 export function getApiKey(): string | undefined {
   return (
     process.env.WATCHMODE_API_KEY?.trim() ||
+    process.env.STREAMHUNT_API_KEY?.trim() ||
     process.env.STREAMFIND_API_KEY?.trim() ||
     undefined
   );
@@ -110,14 +124,17 @@ export function getApiKey(): string | undefined {
 
 /**
  * Resolves the target region code (e.g., 'US', 'GB', 'CA').
- * Priority: CLI flag > STREAMFIND_DEFAULT_REGION env > user config.region > 'US'
+ * Priority: CLI flag > user config > STREAMHUNT_DEFAULT_REGION > default 'US'
  */
-export function resolveRegion(cliRegion?: string, userConfig?: StreamFindConfig): string {
+export function resolveRegion(cliRegion?: string, userConfig?: StreamHuntConfig): string {
   if (cliRegion && cliRegion.trim().length > 0) {
     return cliRegion.trim().toUpperCase();
   }
   if (userConfig?.region && userConfig.region.trim().length > 0) {
     return userConfig.region.trim().toUpperCase();
+  }
+  if (process.env.STREAMHUNT_DEFAULT_REGION && process.env.STREAMHUNT_DEFAULT_REGION.trim().length > 0) {
+    return process.env.STREAMHUNT_DEFAULT_REGION.trim().toUpperCase();
   }
   if (process.env.STREAMFIND_DEFAULT_REGION && process.env.STREAMFIND_DEFAULT_REGION.trim().length > 0) {
     return process.env.STREAMFIND_DEFAULT_REGION.trim().toUpperCase();

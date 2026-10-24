@@ -17,15 +17,15 @@ export class Formatter {
     const media = formatMediaType(title.type || details?.type);
     const yearStr = title.year ? ` (${title.year})` : '';
 
-    let content = `${media.icon}  ${chalk.bold.white(title.name)}${chalk.dim(yearStr)}  •  ${chalk.cyan(media.label)}`;
+    let content = `${chalk.bold.white(title.name)}${chalk.dim(yearStr)}  |  ${chalk.cyan(media.label)}`;
 
     const metaParts: string[] = [];
 
     if (details?.user_rating) {
-      metaParts.push(chalk.yellow(`★ ${details.user_rating.toFixed(1)}/10`));
+      metaParts.push(chalk.yellow(`Rating: ${details.user_rating.toFixed(1)}/10`));
     }
     if (details?.critic_score) {
-      metaParts.push(chalk.green(`🍅 ${details.critic_score}%`));
+      metaParts.push(chalk.green(`Critic: ${details.critic_score}%`));
     }
     if (details?.runtime_minutes) {
       metaParts.push(chalk.dim(`${details.runtime_minutes} min`));
@@ -35,7 +35,7 @@ export class Formatter {
     }
 
     if (metaParts.length > 0) {
-      content += `\n${metaParts.join(chalk.dim('  •  '))}`;
+      content += `\n${metaParts.join(chalk.dim('  |  '))}`;
     }
 
     if (details?.plot_overview) {
@@ -59,16 +59,16 @@ export class Formatter {
 
     switch (source.category) {
       case 'paid_sub':
-        badge = chalk.green.bold('✔ [Paid Sub]');
+        badge = chalk.green.bold('[Paid Sub]');
         break;
       case 'free_tier':
-        badge = chalk.yellow.bold('✔ [Free Tier]');
+        badge = chalk.yellow.bold('[Free Tier]');
         break;
       case 'included_free':
-        badge = chalk.green.bold('✔ [Included Free]');
+        badge = chalk.green.bold('[Included Free]');
         break;
       case 'public_free':
-        badge = chalk.blue.bold('✔ [Public Free]');
+        badge = chalk.blue.bold('[Public Free]');
         break;
       case 'rent':
         badge = chalk.magenta.bold('[Rent]');
@@ -99,7 +99,7 @@ export class Formatter {
     }
 
     if (source.webUrl) {
-      const linkText = chalk.dim.underline('➜ Open Stream');
+      const linkText = chalk.dim.underline('-> Open Stream');
       const clickable = formatHyperlink(linkText, source.webUrl);
       line += `  ${clickable}`;
     }
@@ -151,8 +151,8 @@ export class Formatter {
     } else {
       lines.push(
         boxen(
-          `${chalk.yellow.bold('⚠️  Not currently streaming on your active subscriptions or free tiers.')}\n\n` +
-            `${chalk.dim('Tip: Use ')}${chalk.cyan('streamfind "<title>" --all')}${chalk.dim(
+          `${chalk.yellow.bold('[Notice] Not currently streaming on your active subscriptions or free tiers.')}\n\n` +
+            `${chalk.dim('Tip: Use ')}${chalk.cyan('streamhunt "<title>" --all')}${chalk.dim(
               ' to see Rent/Buy prices and other streaming services.'
             )}`,
           {
@@ -211,7 +211,7 @@ export class Formatter {
       boxen(
         `${chalk.bold.white(`Supported Streaming Providers for Region:`)} ${chalk.cyan.bold(region)}\n` +
           `${chalk.dim('Total providers found:')} ${chalk.green(providers.length)}\n` +
-          `${chalk.dim('Use these exact names in your ~/.streamfind/config.json')}`,
+          `${chalk.dim('Use these exact names in your ~/.streamhunt/config.json')}`,
         {
           padding: 1,
           borderStyle: 'round',
@@ -224,7 +224,7 @@ export class Formatter {
     // Group into columns or clean list
     for (const p of providers) {
       const typeBadge = p.type ? chalk.dim(`[${p.type}]`) : '';
-      lines.push(`  • ${chalk.white.bold(p.name)} ${typeBadge}`);
+      lines.push(`  - ${chalk.white.bold(p.name)} ${typeBadge}`);
     }
 
     lines.push('');
@@ -235,7 +235,7 @@ export class Formatter {
    * Formats user-friendly error banners
    */
   static renderError(title: string, message: string, remediation?: string): string {
-    let body = `${chalk.red.bold('✖ ' + title)}\n\n${chalk.white(message)}`;
+    let body = `${chalk.red.bold('[Error] ' + title)}\n\n${chalk.white(message)}`;
     if (remediation) {
       body += `\n\n${chalk.cyan.bold('How to fix:')}\n${chalk.dim(remediation)}`;
     }

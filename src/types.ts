@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * User configuration stored in ~/.streamfind/config.json
+ * User configuration stored in ~/.streamhunt/config.json
  */
 export const ConfigSchema = z.object({
   region: z.string().default('US'),
@@ -13,7 +13,8 @@ export const ConfigSchema = z.object({
   include_rent_buy: z.boolean().default(false),
 });
 
-export type StreamFindConfig = z.infer<typeof ConfigSchema>;
+export type StreamHuntConfig = z.infer<typeof ConfigSchema>;
+export type StreamFindConfig = StreamHuntConfig; // Backward compatibility alias
 
 /**
  * Watchmode Search Result Item

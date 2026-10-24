@@ -18,17 +18,18 @@ import {
   MOCK_PROVIDERS,
 } from './utils/mockData.js';
 
-export class StreamFindError extends Error {
+export class StreamHuntError extends Error {
   public code: string;
   public remediation?: string;
 
   constructor(message: string, code: string = 'API_ERROR', remediation?: string) {
     super(message);
-    this.name = 'StreamFindError';
+    this.name = 'StreamHuntError';
     this.code = code;
     this.remediation = remediation;
   }
 }
+export const StreamFindError = StreamHuntError;
 
 export interface WatchmodeClientOptions {
   apiKey?: string;
@@ -49,7 +50,10 @@ export class WatchmodeClient {
     this.cache = options.cache ?? defaultCache;
     this.timeoutMs = options.timeoutMs ?? 10000;
     this.mockMode =
-      options.mockMode ?? (process.env.STREAMFIND_MOCK === 'true' || false);
+      options.mockMode ??
+      (process.env.STREAMHUNT_MOCK === 'true' ||
+        process.env.STREAMFIND_MOCK === 'true' ||
+        false);
   }
 
   /**
@@ -58,7 +62,7 @@ export class WatchmodeClient {
   private requireApiKey(): string {
     if (this.mockMode) return 'MOCK_KEY';
     if (!this.apiKey || this.apiKey.trim().length === 0) {
-      throw new StreamFindError(
+      throw new StreamHuntError(
         'Watchmode API key is missing.',
         'MISSING_API_KEY',
         'Add your key to .env (WATCHMODE_API_KEY=your_key) or visit https://api.watchmode.com/ to sign up for a free key.'
@@ -86,32 +90,32 @@ export class WatchmodeClient {
         signal: controller.signal,
         headers: {
           Accept: 'application/json',
-          'User-Agent': 'streamfind-cli/1.0.0',
+          'User-Agent': 'streamhunt-cli/1.0.0',
         },
       });
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
-          throw new StreamFindError(
+          throw new StreamHuntError(
             'Unauthorized: Invalid Watchmode API key provided.',
             'INVALID_API_KEY',
             'Verify your WATCHMODE_API_KEY in .env or at https://api.watchmode.com/'
           );
         }
         if (response.status === 429) {
-          throw new StreamFindError(
+          throw new StreamHuntError(
             'Watchmode API rate limit reached or quota exhausted.',
             'RATE_LIMIT_EXCEEDED',
             'Watchmode free tier allows limited requests per month. Check your quota at https://api.watchmode.com/'
           );
         }
         if (response.status === 404) {
-          throw new StreamFindError(
+          throw new StreamHuntError(
             'The requested resource was not found on Watchmode.',
             'NOT_FOUND'
           );
         }
-        throw new StreamFindError(
+        throw new StreamHuntError(
           `Watchmode API returned error status ${response.status}: ${response.statusText}`,
           'HTTP_ERROR'
         );
@@ -120,17 +124,17 @@ export class WatchmodeClient {
       const json = await response.json();
       return json as T;
     } catch (err: any) {
-      if (err instanceof StreamFindError) {
+      if (err instanceof StreamHuntError) {
         throw err;
       }
       if (err.name === 'AbortError') {
-        throw new StreamFindError(
+        throw new StreamHuntError(
           `Request to Watchmode timed out after ${this.timeoutMs}ms.`,
           'TIMEOUT',
           'Check your internet connection or try again later.'
         );
       }
-      throw new StreamFindError(
+      throw new StreamHuntError(
         `Network error while contacting Watchmode: ${err.message}`,
         'NETWORK_ERROR',
         'Verify your network connection.'

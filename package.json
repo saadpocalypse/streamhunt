@@ -1,10 +1,10 @@
 {
-  "name": "streamfind",
+  "name": "streamhunt",
   "version": "1.0.0",
   "description": "Production-grade streaming availability CLI tool powered by Watchmode API",
   "type": "module",
   "bin": {
-    "streamfind": "./dist/cli.js"
+    "streamhunt": "./dist/cli.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

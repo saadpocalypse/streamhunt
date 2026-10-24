@@ -1,10 +1,10 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { matchSources, isProviderInList } from '../src/matcher.js';
-import type { StreamFindConfig, SourceItem, SearchResultItem } from '../src/types.js';
+import type { StreamHuntConfig, SourceItem, SearchResultItem } from '../src/types.js';
 
-describe('Matcher & Categorization Engine', () => {
-  const sampleConfig: StreamFindConfig = {
+describe('Matcher and Categorization Engine', () => {
+  const sampleConfig: StreamHuntConfig = {
     region: 'US',
     subscriptions: {
       paid: ['Max', 'Philo'],
@@ -46,7 +46,7 @@ describe('Matcher & Categorization Engine', () => {
     assert.equal(result.paidSubscriptions.length, 1);
     assert.equal(result.paidSubscriptions[0].providerName, 'Max');
     assert.equal(result.paidSubscriptions[0].category, 'paid_sub');
-    assert.equal(result.paidSubscriptions[0].badgeLabel, '✔ [Paid Sub]');
+    assert.equal(result.paidSubscriptions[0].badgeLabel, '[Paid Sub]');
   });
 
   it('categorizes account free tiers as [Free Tier]', () => {
@@ -64,7 +64,7 @@ describe('Matcher & Categorization Engine', () => {
     assert.equal(result.freeTiers.length, 1);
     assert.equal(result.freeTiers[0].providerName, 'Sling TV');
     assert.equal(result.freeTiers[0].category, 'free_tier');
-    assert.equal(result.freeTiers[0].badgeLabel, '✔ [Free Tier]');
+    assert.equal(result.freeTiers[0].badgeLabel, '[Free Tier]');
     assert.equal(result.freeTiers[0].subDescription, '(Freestream / Free channels)');
   });
 
@@ -84,7 +84,7 @@ describe('Matcher & Categorization Engine', () => {
     assert.equal(result.includedFree.length, 1);
     assert.equal(result.includedFree[0].providerName, 'Max');
     assert.equal(result.includedFree[0].category, 'included_free');
-    assert.equal(result.includedFree[0].badgeLabel, '✔ [Included Free]');
+    assert.equal(result.includedFree[0].badgeLabel, '[Included Free]');
   });
 
   it('categorizes open public free platforms as [Public Free]', () => {
@@ -109,7 +109,7 @@ describe('Matcher & Categorization Engine', () => {
     assert.equal(result.publicFree.length, 2);
     assert.equal(result.publicFree[0].providerName, 'Tubi');
     assert.equal(result.publicFree[0].category, 'public_free');
-    assert.equal(result.publicFree[0].badgeLabel, '✔ [Public Free]');
+    assert.equal(result.publicFree[0].badgeLabel, '[Public Free]');
   });
 
   it('hides rent/buy unless --all is passed or config.include_rent_buy is true', () => {
@@ -160,7 +160,7 @@ describe('Matcher & Categorization Engine', () => {
     const result = matchSources(sampleTitle, sources, sampleConfig, null, {
       includeAll: true,
     });
-    assert.equal(result.paidSubscriptions.length, 0); // user doesn't have Netflix in config
+    assert.equal(result.paidSubscriptions.length, 0);
     assert.equal(result.otherSubscriptions.length, 1);
     assert.equal(result.otherSubscriptions[0].providerName, 'Netflix');
     assert.equal(result.otherSubscriptions[0].category, 'other_sub');

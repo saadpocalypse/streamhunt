@@ -1,5 +1,6 @@
 import type {
   SourceItem,
+  StreamHuntConfig,
   StreamFindConfig,
   SearchResultItem,
   TitleDetails,
@@ -192,7 +193,7 @@ export function matchSources(
           format: src.format,
           price: src.price,
           webUrl: src.web_url,
-          badgeLabel: '✔ [Paid Sub]',
+          badgeLabel: '[Paid Sub]',
           tagColor: 'green',
         });
       } else {
@@ -221,7 +222,7 @@ export function matchSources(
           format: src.format,
           price: src.price,
           webUrl: src.web_url,
-          badgeLabel: '✔ [Free Tier]',
+          badgeLabel: '[Free Tier]',
           tagColor: 'yellow',
           subDescription: '(Freestream / Free channels)',
         });
@@ -235,7 +236,7 @@ export function matchSources(
           format: src.format,
           price: src.price,
           webUrl: src.web_url,
-          badgeLabel: '✔ [Included Free]',
+          badgeLabel: '[Included Free]',
           tagColor: 'green',
         });
       } else if (config.always_include_public_free) {
@@ -248,7 +249,7 @@ export function matchSources(
           format: src.format,
           price: src.price,
           webUrl: src.web_url,
-          badgeLabel: '✔ [Public Free]',
+          badgeLabel: '[Public Free]',
           tagColor: 'blue',
           subDescription: '(Ad-supported)',
         });

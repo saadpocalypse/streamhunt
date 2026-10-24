@@ -1,5 +1,3 @@
-import chalk from 'chalk';
-
 /**
  * Creates an OSC 8 clickable terminal hyperlink with graceful fallback
  */
@@ -28,12 +26,12 @@ export function formatPrice(price?: number | null): string {
 }
 
 /**
- * Converts media type string to human-friendly icon & label
+ * Converts media type string to human-friendly clean label
  */
-export function formatMediaType(type?: string | null): { icon: string; label: string } {
+export function formatMediaType(type?: string | null): { label: string } {
   const t = (type || '').toLowerCase();
   if (t.includes('tv') || t.includes('series') || t.includes('show')) {
-    return { icon: '📺', label: 'TV Series' };
+    return { label: 'TV Series' };
   }
-  return { icon: '🎬', label: 'Movie' };
+  return { label: 'Movie' };
 }

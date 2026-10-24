@@ -23,7 +23,7 @@ export class CacheManager {
   private defaultTtlMs: number;
 
   constructor(customDir?: string, defaultTtlMs: number = DEFAULT_TTL_MS) {
-    this.cacheDir = customDir || path.join(os.homedir(), '.cache', 'streamfind');
+    this.cacheDir = customDir || path.join(os.homedir(), '.cache', 'streamhunt');
     this.defaultTtlMs = defaultTtlMs;
   }
 

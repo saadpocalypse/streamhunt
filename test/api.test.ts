@@ -1,16 +1,16 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { WatchmodeClient, StreamFindError } from '../src/api.js';
+import { WatchmodeClient, StreamHuntError } from '../src/api.js';
 
-describe('Watchmode Client & Error States', () => {
-  it('throws friendly StreamFindError when API key is missing', async () => {
+describe('Watchmode Client and Error States', () => {
+  it('throws friendly StreamHuntError when API key is missing', async () => {
     const client = new WatchmodeClient({ apiKey: '', mockMode: false });
     await assert.rejects(
       async () => {
         await client.search('Batman');
       },
       (err: any) => {
-        assert.ok(err instanceof StreamFindError);
+        assert.ok(err instanceof StreamHuntError);
         assert.equal(err.code, 'MISSING_API_KEY');
         assert.ok(err.remediation?.includes('WATCHMODE_API_KEY'));
         return true;
